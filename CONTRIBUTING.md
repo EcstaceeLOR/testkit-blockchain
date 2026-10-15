@@ -65,6 +65,38 @@ cargo deny check
   helper whose failure message doesn't tell the user what went wrong and
   what to look at is not done.
 
+## Test isolation policy
+
+Tests run in parallel and in an unspecified order. Each test or table-driven
+case must therefore own a fresh `TestEnv`; do not keep a `TestEnv`, raw
+`soroban_sdk::Env`, contract client, address, token, or other SDK value in a
+global/static fixture or share one between tests.
+
+An SDK `Env::clone()` is another handle to the same host, **not** an isolated
+environment. Cloned handles observe the same ledger clock, contracts, storage,
+events, authorization mocks, and budget. Use `TestEnv::clone_config()` when a
+case needs a clean environment with the same seed and ledger-close interval,
+or `TestEnv::reset()` for an owned mutable fixture. Recreate all clients,
+addresses, tokens, and other environment-bound values after either operation;
+values from one environment must never be passed to another.
+
+Treat every mutation reached through `TestEnv::env()` as fixture state. This
+includes direct ledger changes, `mock_all_auths*`, registered contracts,
+storage, emitted events, and budget settings. Set it up inside the test that
+needs it and let the environment be dropped with that test. Prefer scoped
+guards for unavoidable process-global changes such as panic hooks or
+environment variables, and serialize those tests if their lifetimes can
+overlap. Subprocess fixtures must use per-test temporary paths and must remain
+network-free.
+
+When reviewing a fixture, verify that it:
+
+- passes when run alone, in parallel, and in a different order;
+- creates its environment and all environment-bound values within the case;
+- does not rely on state left by another test or leak process-global state;
+- uses a fixed `TestEnv::with_seed(...)` only when reproducibility matters,
+  without assuming that equal seeds make separate environments share state.
+
 ## Local setup
 
 ```sh

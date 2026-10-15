@@ -99,6 +99,12 @@ soroban-testkit limits --contract target/wasm32v1-none/release/my_contract.wasm 
 soroban-testkit audit ./src --strict
 ```
 
+`soroban-testkit audit` is a linter with three heuristics, not a security
+product. It can miss real bugs and flag non-bugs; a missing finding is not a
+security guarantee. This is the same bounded claim made by the command output
+and the Module 9 requirements in [`BUILD_SPEC.md`](BUILD_SPEC.md#soroban-testkit-audit).
+See [Audit command limitations](#audit-command).
+
 `limits` ramps a numeric parameter directly, or generates addresses for a
 `Vec<Address>` parameter — the common "how many recipients" question.
 Every ramp attempt runs in its own subprocess: a real `.wasm` contract
@@ -106,7 +112,69 @@ that exceeds resource limits can abort the process outright rather than
 return an error, and isolating each attempt is the only safe way to probe
 past that boundary. Ledger read/write counts and transaction size aren't
 reported (they come from a network-side simulated footprint this crate
-doesn't produce); instructions and memory, measured locally, are.
+doesn't produce); instructions and memory, measured locally, are. See
+[Limits command limitations](#limits-command).
+
+## Known limitations
+
+These constraints follow from the current `soroban-sdk` test environment and
+the project's network-free boundary. They are supported boundaries, not
+claims about live-network behavior.
+
+### TTL helpers
+
+- TTL inspection and expiry use `soroban-sdk::testutils` in the current
+  in-memory environment. They do not fetch a network's archival configuration
+  or exercise restore-footprint operations.
+- `ttl_of` follows the SDK behavior and panics when a persistent or temporary
+  entry is missing or already expired. Instance storage has one TTL per
+  contract, so its `key` argument is ignored.
+- `expire(kind)` is intentionally coarse. It reads the environment's current
+  `max_entry_ttl` and advances the whole ledger beyond it; `kind` documents the
+  caller's intent but does not restrict expiry to one entry or storage kind.
+  Use a disposable `TestEnv` when unrelated state must survive.
+
+### Limits command
+
+- `limits` registers the supplied WASM in a fresh local SDK environment for
+  every probe, allows mocked authorization, and reports local CPU-instruction
+  and memory budgets. It is a diagnostic ceiling, not a network simulation or
+  a guarantee that the same call fits a live transaction.
+- Ramp parameters are limited to integer types and `Vec<Address>`. Other
+  parameters receive fixed defaults only for the supported primitive types;
+  a parameter named `token` receives a funded SAC as a documented heuristic.
+- Contracts must currently register with empty constructor arguments. Support
+  for constructor arguments is tracked in [#242](https://github.com/soroban-testkit/testkit-blockchain/issues/242).
+- Ledger read/write counts and transaction size are unavailable because they
+  require the network-side simulated footprint that this command deliberately
+  does not produce.
+
+### Audit command
+
+`audit` checks source syntax for three local patterns. It does not expand
+macros, follow calls into helper functions, or replace a contract security
+review, so both false positives and false negatives are expected.
+
+## Roadmap
+
+The supported surface today is deliberately in-process and network-free:
+isolated test environments, ledger-clock control, adversarial money values,
+event assertions, SAC token doubles, authorization matrices, TTL-expiry
+checks, and the `coverage`, `limits`, and three-rule `audit` CLI commands.
+The next increments are kept small and tracked in these curated issues:
+
+| Area | Planned increment | Tracking issues |
+|---|---|---|
+| Ledger ergonomics | Sequence-oriented advancement and reusable clock checkpoints | [#60](https://github.com/soroban-testkit/testkit-blockchain/issues/60), [#61](https://github.com/soroban-testkit/testkit-blockchain/issues/61) |
+| TTL assertions | Minimum-TTL and exact TTL-delta assertions | [#187](https://github.com/soroban-testkit/testkit-blockchain/issues/187), [#188](https://github.com/soroban-testkit/testkit-blockchain/issues/188) |
+| Audit workflow | Rule selection, documented suppressions, baselines, and rule explanations | [#215](https://github.com/soroban-testkit/testkit-blockchain/issues/215), [#216](https://github.com/soroban-testkit/testkit-blockchain/issues/216), [#220](https://github.com/soroban-testkit/testkit-blockchain/issues/220), [#221](https://github.com/soroban-testkit/testkit-blockchain/issues/221) |
+| Limits CLI | Constructor arguments for contracts that cannot be registered with `()` | [#242](https://github.com/soroban-testkit/testkit-blockchain/issues/242) |
+| Real-contract validation | Recurring-contract and batch-payout authorization coverage | [#266](https://github.com/soroban-testkit/testkit-blockchain/issues/266), [#267](https://github.com/soroban-testkit/testkit-blockchain/issues/267) |
+
+Issues describe intended work, not release promises. Mainnet/testnet forking,
+deployment tooling, frontend testing, a test runner, a full benchmarking
+framework, and network-dependent test behavior remain out of scope; see
+[`BUILD_SPEC.md` §3](BUILD_SPEC.md#3-scope-boundaries).
 
 ## Status
 

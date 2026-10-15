@@ -1320,7 +1320,8 @@ mod tests {
 
     #[test]
     fn property_calendar_helpers_match_advance_by_the_same_number_of_seconds() {
-        let helpers: [(&str, u64, fn(&TestEnv, u64)); 3] = [
+        type CalendarHelper = (&'static str, u64, fn(&TestEnv, u64));
+        let helpers: [CalendarHelper; 3] = [
             ("advance_minutes", SECS_PER_MINUTE, TestEnv::advance_minutes),
             ("advance_hours", SECS_PER_HOUR, TestEnv::advance_hours),
             ("advance_days", SECS_PER_DAY, TestEnv::advance_days),
