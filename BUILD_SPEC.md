@@ -676,3 +676,27 @@ Label taxonomy:
 **Owner-facing usage:** an issue gets exactly one `module/*` label (or `docs` if it touches no module code), exactly one `size/*` label, and `good-first-issue` and/or `help-wanted` as applicable. An issue missing a `module/*` or `docs` label and a `size/*` label is not ready to open.
 
 **Difficulty guidance:** Modules 3, 4, 5, and the `audit` rules are good first issues. Module 7 is not — do not label TTL work as beginner-friendly.
+
+**Automatic labels:** issues opened from the forms in `.github/ISSUE_TEMPLATE/` get their `module/*` (or `docs`) and `size/*` labels from the form's "Module" and "Size" dropdowns, applied by `.github/workflows/issue-triage.yml` when the issue is opened. The workflow only adds labels from a fixed allowlist and never removes or edits them afterwards; `good-first-issue` and `help-wanted` stay a maintainer decision.
+
+### Seeding safeguards
+
+Seeding many issues at once is where low-quality and duplicate entries get in. A board of 40 near-identical "add docs for X" issues is worse than 12 good ones: contributors pick duplicates, PRs collide, and reviewers spend the Wave closing issues instead of merging work. Every seeded issue passes the readiness review below, and seeding happens in bounded batches.
+
+**Readiness review — reject or rewrite an issue that fails any of these:**
+
+1. **Complete.** States the problem, affected file paths, expected behavior, acceptance criteria, and how to test locally (the bar above).
+2. **Specific.** The problem names a concrete gap in this repository — a missing method, a wrong message, an untested branch — not a generic goal ("improve docs", "add tests"). The acceptance criteria are checkable by a reviewer without asking the author what they meant.
+3. **In scope.** Nothing in it falls under [§3](#3-scope-boundaries); in particular nothing that needs network access at test time.
+4. **Not a duplicate.** Before opening, search open *and closed* issues and open PRs for the same affected path and the same public item (`is:issue <path>`, `is:pr <path>`, and the item name). If a match exists, comment on or reopen it instead. Two issues touching the same public item are duplicates unless their acceptance criteria are disjoint, and then each must link the other.
+5. **Not already done.** The behavior is checked against `main` at seeding time — the code, its tests, and its docs — so the issue does not describe something that has since landed.
+6. **Independently mergeable.** It can be completed and merged without another open issue landing first. If it cannot, state the dependency in the body and do not label it `good-first-issue`.
+7. **Labeled.** Exactly one `module/*` or `docs` label and exactly one `size/*` label, per the taxonomy above.
+
+**Bounded batching workflow:**
+
+1. **Draft a batch of at most 5 issues** in one place (a scratch document, not the tracker). Do not draft from a template loop that stamps the same text across many paths; each issue's problem statement is written for that issue.
+2. **Review the batch against the readiness review**, including a duplicate search for every issue, both against the tracker and against the rest of the batch. A second maintainer reviews any batch that adds `good-first-issue` labels.
+3. **Open the batch**, then stop and re-read the board as a contributor would see it. Fix overlapping wording or acceptance criteria before drafting the next batch.
+4. **Repeat until the board holds 12–15 ready issues, and no more.** Issues beyond that target go stale before anyone picks them up; keep further drafts out of the tracker until the open count drops.
+5. **Close rather than accumulate.** An issue found to be a duplicate, out of scope, or already done during a later batch is closed with a link to the canonical issue or commit, not left open with a comment.

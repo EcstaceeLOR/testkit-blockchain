@@ -27,6 +27,43 @@ framework, anything requiring network access at test time.
   `Cargo.toml`), so a breaking upstream release is caught before it shows up
   in a contributor's PR. It opens an issue automatically if it fails; it
   never blocks a PR.
+- Docs are also built the way docs.rs builds them (`make docsrs`), from the
+  `[package.metadata.docs.rs]` table in `crates/testkit/Cargo.toml`: one host
+  target and `--cfg docsrs`. Change both together.
+
+## CI workflow permissions
+
+Every workflow under `.github/workflows/` declares a top-level
+`permissions:` block, and each job gets the least `GITHUB_TOKEN` scope it
+needs:
+
+| Workflow / job | Token scope | Why |
+|---|---|---|
+| `ci.yml` (default for all jobs) | `contents: read` | Check out and build the repo; nothing is written back |
+| `ci.yml` → `scheduled-sdk-check` | `contents: read`, `issues: write` | Opens a tracking issue when the weekly latest-SDK run fails; never runs on `pull_request` |
+| `issue-triage.yml` (default) | none | — |
+| `issue-triage.yml` → `label` | `issues: write` | Adds labels from issue-form selections; no checkout |
+
+Rules for new or changed workflows:
+
+- Keep the top-level block, and never use `write-all` or `read-all`.
+- A job that needs a write scope declares its own `permissions:` block
+  (restating `contents: read` if it checks out code), with a comment
+  explaining why, and is added to the table above.
+- Write scopes are never granted to a job that runs on `pull_request`.
+- Third-party secrets (e.g. `CODECOV_TOKEN`) are passed only to the step
+  that uses them.
+
+The `lint` job and `crates/cli/tests/repo_config.rs` enforce the top-level
+block, the absence of `write-all`/`read-all`, and the per-job scopes above.
+
+## Issue triage
+
+New issues opened from the forms get `module/*` (or `docs`) and `size/*`
+labels automatically from their "Module" and "Size" dropdowns
+(`.github/workflows/issue-triage.yml`, taxonomy in `BUILD_SPEC.md` §13).
+When adding a dropdown option, add the matching entry to the workflow's
+`LABELS` map in the same PR; `repo_config.rs` fails otherwise.
 
 ## Supply-chain policy
 
