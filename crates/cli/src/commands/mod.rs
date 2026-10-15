@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod coverage;
 pub mod limits;
+pub mod output;
 
 use clap::{Parser, Subcommand};
 
@@ -9,6 +10,8 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "soroban-testkit", version, about)]
 pub struct Cli {
+    #[command(flatten)]
+    pub global: output::GlobalArgs,
     #[command(subcommand)]
     pub command: Commands,
 }

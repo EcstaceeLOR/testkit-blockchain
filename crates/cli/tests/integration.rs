@@ -184,3 +184,115 @@ fn limits_reports_an_actionable_error_for_an_unknown_function() {
     assert!(!output.status.success());
     assert!(stderr.contains("no function named"), "{stderr}");
 }
+
+fn run_in(dir: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_soroban-testkit"))
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .expect("failed to run soroban-testkit")
+}
+
+#[test]
+fn audit_paths_are_relative_to_the_audited_root_from_any_working_directory() {
+    let root = workspace_root();
+    let vault_src = root.join("examples/vault/src");
+    let from_workspace = run_in(&root, &["audit", "examples/vault/src", "--json"]);
+    let from_crate = run_in(&root.join("examples/vault"), &["audit", "src", "--json"]);
+    let absolute = run_in(
+        &root.join("crates"),
+        &["audit", vault_src.to_str().unwrap(), "--json"],
+    );
+
+    let stdout = String::from_utf8_lossy(&from_workspace.stdout);
+    assert!(stdout.contains("\"file\":\"lib.rs\""), "{stdout}");
+    assert!(!stdout.contains("examples/vault"), "{stdout}");
+    assert_eq!(from_workspace.stdout, from_crate.stdout);
+    assert_eq!(from_workspace.stdout, absolute.stdout);
+}
+
+#[test]
+fn audit_text_output_uses_root_relative_paths() {
+    let output = run_in(&workspace_root().join("examples/vault"), &["audit"]);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "stdout: {stdout}");
+    assert!(
+        stdout.lines().any(|l| l.starts_with("src/lib.rs:")),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("./"), "{stdout}");
+}
+
+#[test]
+fn no_color_output_is_ansi_free() {
+    for args in [
+        &["--no-color", "audit", "examples/vault/src", "--strict"][..],
+        &["audit", "examples/vault/src", "--no-color", "--json"][..],
+        &["--no-color", "audit", "does/not/exist.rs", "--bogus"][..],
+    ] {
+        let output = run(args);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!stdout.contains('\x1b'), "{args:?} stdout: {stdout}");
+        assert!(!stderr.contains('\x1b'), "{args:?} stderr: {stderr}");
+    }
+}
+
+#[test]
+fn no_color_env_var_keeps_errors_ansi_free() {
+    let output = Command::new(env!("CARGO_BIN_EXE_soroban-testkit"))
+        .args(["audit", "examples/vault/src", "--strict"])
+        .current_dir(workspace_root())
+        .env("NO_COLOR", "1")
+        .output()
+        .expect("failed to run soroban-testkit");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.starts_with("error: "), "{stderr}");
+    assert!(!stderr.contains('\x1b'), "{stderr}");
+}
+
+#[test]
+fn quiet_drops_advisory_notes_but_keeps_findings() {
+    let output = run(&["-q", "audit", "examples/vault/src"]);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "stdout: {stdout}");
+    assert!(stdout.contains("missing-require-auth"), "{stdout}");
+    assert!(!stdout.contains("not a security product"), "{stdout}");
+
+    let clean = run(&["audit", "crates/cli/src/commands/mod.rs", "--quiet"]);
+    assert!(clean.status.success());
+    assert!(clean.stdout.is_empty(), "{:?}", clean.stdout);
+}
+
+#[test]
+fn quiet_still_reports_errors_and_json() {
+    let strict = run(&["--quiet", "audit", "examples/vault/src", "--strict"]);
+    assert!(!strict.status.success());
+    let stderr = String::from_utf8_lossy(&strict.stderr);
+    assert!(stderr.contains("audit finding(s)"), "{stderr}");
+
+    let json = run(&["--quiet", "audit", "examples/vault/src", "--json"]);
+    let stdout = String::from_utf8_lossy(&json.stdout);
+    assert!(stdout.starts_with("{\"schema_version\":1,"), "{stdout}");
+}
+
+#[test]
+fn verbose_adds_diagnostics_on_stderr_only() {
+    let normal = run(&["audit", "examples/vault/src"]);
+    let verbose = run(&["--verbose", "audit", "examples/vault/src"]);
+    let stderr = String::from_utf8_lossy(&verbose.stderr);
+
+    assert!(verbose.status.success(), "stderr: {stderr}");
+    assert!(stderr.contains("scanning "), "{stderr}");
+    assert!(stderr.contains("lib.rs"), "{stderr}");
+    assert!(normal.stderr.is_empty());
+    assert_eq!(normal.stdout, verbose.stdout);
+}
+
+#[test]
+fn quiet_and_verbose_conflict() {
+    let output = run(&["-q", "-v", "audit", "examples/vault/src"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("cannot be used with"), "{stderr}");
+}

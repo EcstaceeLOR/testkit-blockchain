@@ -7,6 +7,7 @@ use soroban_sdk::token::StellarAssetClient;
 use soroban_sdk::xdr::{ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef};
 use soroban_sdk::{Address, Env, IntoVal, Symbol, Val, Vec as SVec};
 
+use super::output::Output;
 use super::CliError;
 
 /// Arguments for `soroban-testkit limits`.
@@ -75,7 +76,7 @@ pub struct ProbeArgs {
 /// this crate deliberately avoids — see its "zero network access"
 /// constraint). Only CPU instructions and memory, available locally via
 /// the host's budget, are reported.
-pub fn run(args: LimitsArgs) -> Result<(), CliError> {
+pub fn run(args: LimitsArgs, out: Output) -> Result<(), CliError> {
     // Validate the configuration (function exists, ramp parameter exists,
     // every parameter's type is one this command knows how to default or
     // ramp) up front, in-process, before spawning any probes — this is
@@ -105,6 +106,11 @@ pub fn run(args: LimitsArgs) -> Result<(), CliError> {
             .stderr(std::process::Stdio::null())
             .status()
             .map_err(|err| CliError(format!("failed to spawn probe: {err}")))?;
+        out.detail(format!(
+            "probe {}={value}: {}",
+            args.ramp,
+            if status.success() { "ok" } else { "failed" }
+        ));
         Ok(status.success())
     };
 
@@ -165,9 +171,9 @@ pub fn run(args: LimitsArgs) -> Result<(), CliError> {
     );
     println!("  instructions: {instructions}");
     println!("  memory bytes: {memory_bytes}");
-    println!(
+    out.note(
         "  (ledger reads/writes and transaction size are not measured by this command; \
-         see --help)"
+         see --help)",
     );
 
     Ok(())
