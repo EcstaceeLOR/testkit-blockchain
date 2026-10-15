@@ -108,6 +108,48 @@ past that boundary. Ledger read/write counts and transaction size aren't
 reported (they come from a network-side simulated footprint this crate
 doesn't produce); instructions and memory, measured locally, are.
 
+`audit` reports each finding's path relative to the audited `PATH`, with
+`/` separators, so `soroban-testkit audit src` run from the crate and
+`soroban-testkit audit my_contract/src` run from its parent both print
+`lib.rs:12: ...`. When `PATH` is a single file, its file name is used.
+
+### Coverage thresholds
+
+`--fail-under PCT` makes `coverage` exit non-zero when **line** coverage is
+below `PCT`. It is forwarded unchanged to cargo-llvm-cov as
+`--fail-under-lines PCT`, so cargo-llvm-cov does the measuring and the
+comparison; it combines with any `--format`. Requires
+`cargo install cargo-llvm-cov`. Running the command locally makes no
+network access.
+
+```sh
+# Exits 0 if line coverage is >= 80%, otherwise prints the report and
+# fails with: error: coverage run failed (cargo llvm-cov exited with ...)
+soroban-testkit coverage --fail-under 80
+
+# Same threshold, writing lcov.info for an IDE or CI upload step.
+soroban-testkit coverage --format lcov --fail-under 92.5
+
+# What actually runs (shown with --verbose):
+#   cargo llvm-cov test --fail-under-lines 80
+soroban-testkit --verbose coverage --fail-under 80
+```
+
+In CI, run it as an ordinary step; its exit code gates the job.
+
+### Output controls
+
+These global flags go before or after the subcommand:
+
+| Flag | Effect |
+| --- | --- |
+| `--no-color` | No ANSI color codes, including from the `cargo` that `coverage` runs. A non-empty `NO_COLOR` environment variable does the same. Color is only ever written to a terminal, so piped output is already plain. |
+| `-q`, `--quiet` | Results and errors only: drops advisory notes such as the `audit` disclaimer and "no findings". Passes `--quiet` to cargo-llvm-cov. |
+| `-v`, `--verbose` | Extra diagnostics on stderr (files scanned, commands run, each `limits` probe). Passes `--verbose` to cargo-llvm-cov. Stdout is unchanged. |
+
+`--quiet` and `--verbose` cannot be combined. Findings, measured limits,
+`--json` documents, and errors are printed at every level.
+
 ## Offline install
 
 Contributors working without network access to crates.io can prefetch and
