@@ -51,6 +51,16 @@ impl TestkitError {
     /// | [`TestkitError::DecodeFailed`] | `TESTKIT_DECODE_FAILED` |
     /// | [`TestkitError::Misuse`] | `TESTKIT_MISUSE` |
     ///
+    /// ## Changelog
+    ///
+    /// Tooling authors matching on `code()` should watch this crate's
+    /// release notes for entries here. New rows only ever *add* a code;
+    /// existing rows never change.
+    ///
+    /// | Version | Change |
+    /// |---|---|
+    /// | 0.1.0 | Initial codes: `TESTKIT_ASSERTION_FAILED`, `TESTKIT_DECODE_FAILED`, `TESTKIT_MISUSE` |
+    ///
     /// # Example
     ///
     /// ```

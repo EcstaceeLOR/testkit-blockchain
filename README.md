@@ -49,8 +49,8 @@ impl Escrow {
 # fn main() {
 let env = TestEnv::new();
 let token = env.token();
-let buyer = env.address();
-let seller = env.address();
+let [buyer, seller]: [soroban_sdk::Address; 2] =
+    env.addresses(2).try_into().unwrap();
 token.mint(&buyer, 100);
 
 let escrow_id = env.env().register(Escrow, ());

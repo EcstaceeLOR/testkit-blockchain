@@ -656,6 +656,23 @@ Every issue must state: the problem, affected file paths, expected behavior, acc
 - Failure-message improvements, each independently reviewable
 - Each `VALIDATION.md` target repo as its own issue
 
-Label taxonomy: `good-first-issue`, `help-wanted`, `module/core`, `module/money`, `module/events`, `module/auth`, `module/ttl`, `module/cli`, `docs`, `size/s`, `size/m`, `size/l`.
+Label taxonomy:
+
+| Label | Meaning | Apply when |
+|---|---|---|
+| `good-first-issue` | Scoped, self-contained, no cross-module context needed | The acceptance criteria touch one file and one public item |
+| `help-wanted` | Maintainers want outside contributors on this, regardless of difficulty | Any open issue the maintainers are not planning to pick up themselves |
+| `module/core` | Scoped to `src/core/` | Changes `TestEnv` or `TestkitError` |
+| `module/money` | Scoped to `src/money/` | Changes generators or `Conservation` |
+| `module/events` | Scoped to `src/events/` | Changes `EventLog` or capture |
+| `module/auth` | Scoped to `src/auth/` | Changes `AuthMatrix` |
+| `module/ttl` | Scoped to `src/ttl/` | Changes TTL/expiry behavior |
+| `module/cli` | Scoped to `crates/cli/` | Changes a CLI subcommand |
+| `docs` | No public API behavior change | README, `BUILD_SPEC.md`, `ARCHITECTURE.md`, or doc-comment-only edits |
+| `size/s` | Rough effort: under an hour | A single generator, assertion, or doc example |
+| `size/m` | Rough effort: a sitting | A new method with tests, or a module section |
+| `size/l` | Rough effort: multiple sittings | A full module (e.g. `ttl`) or a CLI subcommand |
+
+**Owner-facing usage:** an issue gets exactly one `module/*` label (or `docs` if it touches no module code), exactly one `size/*` label, and `good-first-issue` and/or `help-wanted` as applicable. An issue missing a `module/*` or `docs` label and a `size/*` label is not ready to open.
 
 **Difficulty guidance:** Modules 3, 4, 5, and the `audit` rules are good first issues. Module 7 is not — do not label TTL work as beginner-friendly.
