@@ -642,7 +642,7 @@ The Soroban toolchain moves quickly and this document is a snapshot. Confirm the
 
 ## 13. Issue seeding for Drips Wave
 
-Once Module 8 is done, the repo can be applied to a Wave Program. Target 12–15 open issues before a Wave opens; an approved repo with an empty board is worse than not applying.
+Once Module 8 is done, the repo can be applied to a Wave Program. Target 12–15 open issues before a Wave opens; an approved repo with an empty board is worse than not applying. This target balances contributor engagement (enough work for a healthy cohort) against maintainer capacity to review and merge without overwhelming the backlog. Issues beyond this target tend to go stale before pickup.
 
 Every issue must state: the problem, affected file paths, expected behavior, acceptance criteria, and how to test locally. An issue that does not meet that bar is not ready for a `good-first-issue` label.
 

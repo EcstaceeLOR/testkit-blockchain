@@ -12,6 +12,9 @@ use super::CliError;
 
 /// Arguments for `soroban-testkit limits`.
 #[derive(Args)]
+#[command(after_help = "EXAMPLES:\n    \
+    soroban-testkit limits --contract target/wasm32v1-none/release/my_contract.wasm --fn batch_payout --ramp recipients\n    \
+    soroban-testkit limits --contract my_contract.wasm --fn transfer --ramp amount")]
 pub struct LimitsArgs {
     /// Path to the compiled contract .wasm file.
     #[arg(long, value_name = "PATH")]

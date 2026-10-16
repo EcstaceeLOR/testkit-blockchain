@@ -13,6 +13,10 @@ use super::CliError;
 
 /// Arguments for `soroban-testkit audit`.
 #[derive(Args)]
+#[command(after_help = "EXAMPLES:\n    \
+    soroban-testkit audit ./src\n    \
+    soroban-testkit audit ./src --strict\n    \
+    soroban-testkit audit ./src --json | jq '.findings'")]
 pub struct AuditArgs {
     /// Path to the contract crate to audit (its `.rs` files are scanned
     /// recursively). Pass `-` to read a single source file from stdin
