@@ -1,4 +1,4 @@
-.PHONY: check fmt lint test doc docsrs audit deny cli build clean
+.PHONY: check fmt lint test doc docsrs audit deny cli build clean smoke-test-install
 
 check: fmt lint test doc docsrs audit deny cli
 
@@ -29,6 +29,9 @@ deny:
 
 cli:
 	cargo test -p soroban-testkit-cli
+
+smoke-test-install:
+	./scripts/smoke_test_cli_install.sh
 
 clean:
 	cargo clean

@@ -7,10 +7,30 @@ capability should live — before your first PR.
 ## Scope
 
 Read `BUILD_SPEC.md` §3 (Scope boundaries) before opening an issue or PR.
-In scope: anything that helps test a Soroban contract in-process with
-`soroban-sdk`'s test environment. Out of scope: mainnet/testnet forking,
-deployment tooling, frontend/JS testing, a test runner, a full benchmarking
-framework, anything requiring network access at test time.
+
+### Accepted proposal categories (In Scope)
+
+Anything that helps test a Soroban contract in-process with `soroban-sdk`'s test environment without requiring network connectivity. Examples grounded in `BUILD_SPEC.md` include:
+
+- **Isolated test harness & environment helpers:** Deterministic `soroban_sdk::Env` orchestration, seed helpers, and test isolation (`core`).
+- **Ledger time and clock control:** Advancing ledger sequence and timestamp in lockstep, checkpointing, and time travel for time-locked contracts (`ledger`).
+- **Money math and invariants:** Generators for edge-case numeric inputs (`i128` overflow, zero amounts, bounded ranges) and balance conservation assertions (`money`).
+- **Event assertions and capture:** Typed topic filtering and data extraction from contract events without manual `Val` decoding (`events`).
+- **Token test doubles:** In-memory Stellar Asset Contract (SAC) doubles for minting, transferring, and balance verification (`tokens`).
+- **Authorization matrices:** Proving authorized calls succeed and unauthorized or mismatched callers are rejected across privilege matrices (`auth`).
+- **TTL and storage expiry:** Simulating entry expiration, TTL thresholds, and persistent/temporary/instance rent boundaries in-memory (`ttl`).
+- **Contract analysis tooling:** Local WASM code coverage reporting (via `cargo-llvm-cov`), static contract linting heuristics, and resource limit discovery via subprocess execution (`cli`).
+
+### Rejected proposal categories (Out of Scope)
+
+Proposals falling into these categories will be declined with an explanation pointing to dedicated upstream tooling:
+
+- **Mainnet/testnet chain forking:** Cloning remote ledger state or replaying live network state (point contributors to [`soroban-fork`](https://crates.io/crates/soroban-fork)).
+- **Deployment & lifecycle operations:** Deployment scripts, migration utilities, contract hash upgrades, or network transaction submission (use [`stellar-cli`](https://github.com/stellar/stellar-cli)).
+- **Frontend & cross-language testing:** JavaScript/TypeScript client bindings, UI integration tests, or web wallet adapters (use [`@stellar/stellar-sdk`](https://github.com/stellar/js-stellar-sdk)).
+- **Custom test runner:** Replacing `cargo test` or `cargo nextest` with a bespoke runner or custom test harness (use native Cargo tooling).
+- **Full benchmarking frameworks:** Criterion-style statistical microbenchmarking suites (the CLI empirically checks execution budget ceilings, not CPU timing benchmarks).
+- **Network-dependent test utilities:** Any feature requiring live RPC calls, Horizon queries, or internet access at test time. The library and CLI must remain 100% network-free with zero non-dev network dependencies.
 
 ## Workflow
 

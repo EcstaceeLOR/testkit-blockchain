@@ -1,6 +1,6 @@
 [package]
 name = "soroban-testkit"
-description = "Testing infrastructure for Soroban contracts: money-math generators, event assertions, ledger time and TTL control, token test doubles."
+description = "Testing infrastructure for Soroban contracts: money-math generators, event assertions, ledger time and TTL control, token test doubles, and authorization matrices."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

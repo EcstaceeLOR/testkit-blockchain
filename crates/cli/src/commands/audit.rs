@@ -421,7 +421,10 @@ mod tests {
     #[test]
     fn json_document_for_no_findings_is_an_empty_list() {
         let json = render_json(&[]);
-        assert!(json.ends_with(",\"finding_count\":0,\"findings\":[]}"), "{json}");
+        assert!(
+            json.ends_with(",\"finding_count\":0,\"findings\":[]}"),
+            "{json}"
+        );
     }
 
     #[test]

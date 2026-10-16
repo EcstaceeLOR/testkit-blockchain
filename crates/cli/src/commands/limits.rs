@@ -518,32 +518,43 @@ mod tests {
             ],
         );
         assert_eq!(
-            ramp_index_of(&func, "batch_payout", "recipients")
-                .expect("recipients is an input"),
+            ramp_index_of(&func, "batch_payout", "recipients").expect("recipients is an input"),
             1
         );
     }
 
     #[test]
     fn reports_a_missing_ramp_parameter() {
-        let func = function("batch_payout", vec![input("funder", ScSpecTypeDef::Address)]);
-        let err = ramp_index_of(&func, "batch_payout", "recipients")
-            .expect_err("no such input");
-        assert!(err.0.contains("has no parameter named \"recipients\""), "{err}");
+        let func = function(
+            "batch_payout",
+            vec![input("funder", ScSpecTypeDef::Address)],
+        );
+        let err = ramp_index_of(&func, "batch_payout", "recipients").expect_err("no such input");
+        assert!(
+            err.0.contains("has no parameter named \"recipients\""),
+            "{err}"
+        );
     }
 
     #[test]
     fn every_supported_ramp_type_builds_a_value() {
         let env = Env::default();
         for ty in ramp_types() {
-            assert!(ramp_val(&env, &ty, 3).is_ok(), "ramp type {ty:?} should be supported");
+            assert!(
+                ramp_val(&env, &ty, 3).is_ok(),
+                "ramp type {ty:?} should be supported"
+            );
         }
     }
 
     #[test]
     fn unsupported_ramp_types_are_rejected_with_an_actionable_message() {
         let env = Env::default();
-        for ty in [ScSpecTypeDef::Bool, ScSpecTypeDef::Symbol, ScSpecTypeDef::String] {
+        for ty in [
+            ScSpecTypeDef::Bool,
+            ScSpecTypeDef::Symbol,
+            ScSpecTypeDef::String,
+        ] {
             let err = ramp_val(&env, &ty, 3).err().expect("not a ramp type");
             assert!(err.0.contains("isn't supported yet"), "{err}");
             assert!(err.0.contains("u32/i32/u64/i64/u128/i128"), "{err}");
