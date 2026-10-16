@@ -41,6 +41,20 @@ body:
       placeholder: crates/testkit/src/events/assertions.rs
     validations:
       required: true
+  # Applied as a label by .github/workflows/issue-triage.yml. Keep option
+  # text in sync with the LABELS map there; crates/cli/tests/repo_config.rs
+  # enforces it.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug? Applied as a label automatically.
+      options:
+        - critical (incorrect results or a crash with no workaround)
+        - high (incorrect results or a crash with a workaround)
+        - low (cosmetic, docs, or minor inconvenience)
+    validations:
+      required: true
   - type: textarea
     id: repro
     attributes:

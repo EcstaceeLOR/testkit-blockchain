@@ -332,6 +332,38 @@ body:
     assert_eq!(dropdown_options(form), ["one", "two"]);
 }
 
+// ---- #282: supported versions policy ---------------------------------------
+
+#[test]
+fn readme_states_a_supported_versions_policy_linked_to_the_toolchain_and_scheduled_check() {
+    let readme = read("README.md");
+    let section = readme
+        .split("## Supported versions")
+        .nth(1)
+        .expect("README.md must have a `## Supported versions` section")
+        .split("\n## ")
+        .next()
+        .unwrap();
+
+    assert!(
+        section.contains("rust-toolchain.toml"),
+        "must link the Rust version statement to the pinned toolchain file: {section}"
+    );
+    assert!(
+        section.contains("scheduled-sdk-check"),
+        "must link the soroban-sdk version statement to the scheduled compatibility check: {section}"
+    );
+
+    // The policy must not drift from what actually governs these versions.
+    let toolchain = read("rust-toolchain.toml");
+    assert!(toolchain.contains(r#"channel = "stable""#));
+    let ci = read(".github/workflows/ci.yml");
+    assert!(
+        jobs(&ci).iter().any(|(id, _)| id == "scheduled-sdk-check"),
+        "ci.yml must still have the scheduled-sdk-check job the README references"
+    );
+}
+
 // ---- #296: issue seeding guide ---------------------------------------------
 
 #[test]

@@ -672,8 +672,11 @@ Label taxonomy:
 | `size/s` | Rough effort: under an hour | A single generator, assertion, or doc example |
 | `size/m` | Rough effort: a sitting | A new method with tests, or a module section |
 | `size/l` | Rough effort: multiple sittings | A full module (e.g. `ttl`) or a CLI subcommand |
+| `severity/critical` | Incorrect results or a crash with no workaround | A public API returns a wrong value, or panics, for valid inputs |
+| `severity/high` | Incorrect results or a crash with a workaround | The bug is real but avoidable (e.g. by pinning a version or avoiding one input) |
+| `severity/low` | Cosmetic, docs, or minor inconvenience | A doc typo, confusing error message, or non-functional nit |
 
-**Owner-facing usage:** an issue gets exactly one `module/*` label (or `docs` if it touches no module code), exactly one `size/*` label, and `good-first-issue` and/or `help-wanted` as applicable. An issue missing a `module/*` or `docs` label and a `size/*` label is not ready to open.
+**Owner-facing usage:** an issue gets exactly one `module/*` label (or `docs` if it touches no module code), exactly one `size/*` label (feature requests) or `severity/*` label (bug reports), and `good-first-issue` and/or `help-wanted` as applicable. An issue missing a `module/*` or `docs` label, and a `size/*` or `severity/*` label as appropriate for its form, is not ready to open.
 
 **Difficulty guidance:** Modules 3, 4, 5, and the `audit` rules are good first issues. Module 7 is not — do not label TTL work as beginner-friendly.
 
