@@ -5,6 +5,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords = ["soroban", "testing", "contracts", "stellar", "wasm"]
+categories = ["development-tools::testing"]
 
 [lib]
 doctest = true

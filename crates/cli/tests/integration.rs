@@ -321,3 +321,38 @@ fn quiet_and_verbose_conflict() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("cannot be used with"), "{stderr}");
 }
+
+#[test]
+fn coverage_help_includes_usage_examples() {
+    let output = run(&["coverage", "--help"]);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success(), "stdout: {stdout}");
+    assert!(stdout.contains("EXAMPLES"), "{stdout}");
+    assert!(stdout.contains("--format html"), "{stdout}");
+    assert!(stdout.contains("--format lcov"), "{stdout}");
+    assert!(stdout.contains("--fail-under"), "{stdout}");
+}
+
+#[test]
+fn limits_help_includes_usage_examples() {
+    let output = run(&["limits", "--help"]);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success(), "stdout: {stdout}");
+    assert!(stdout.contains("EXAMPLES"), "{stdout}");
+    assert!(stdout.contains("--contract"), "{stdout}");
+    assert!(stdout.contains("--fn"), "{stdout}");
+    assert!(stdout.contains("--ramp"), "{stdout}");
+}
+
+#[test]
+fn audit_help_includes_usage_examples() {
+    let output = run(&["audit", "--help"]);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success(), "stdout: {stdout}");
+    assert!(stdout.contains("EXAMPLES"), "{stdout}");
+    assert!(stdout.contains("--strict"), "{stdout}");
+    assert!(stdout.contains("--json"), "{stdout}");
+}

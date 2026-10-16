@@ -18,6 +18,10 @@ pub enum Format {
 
 /// Arguments for `soroban-testkit coverage`.
 #[derive(Args)]
+#[command(after_help = "EXAMPLES:\n    \
+    soroban-testkit coverage --format html --open\n    \
+    soroban-testkit coverage --format lcov\n    \
+    soroban-testkit coverage --fail-under 80")]
 pub struct CoverageArgs {
     /// Output format.
     #[arg(long, value_enum, default_value_t = Format::Text)]

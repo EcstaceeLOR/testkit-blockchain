@@ -22,6 +22,12 @@ Soroban contract repo independently rebuilds some subset of:
 `soroban-testkit` is that shared layer, as a dev-dependency crate plus a
 small CLI.
 
+## For Soroban developers
+
+**Keywords:** Soroban testing, smart contracts, Stellar, WASM testing, property testing, money math, event assertions, TTL control, test coverage, resource limits, audit tools.
+
+If you're building a Soroban contract that handles tokens, transfers, or funds, or if you need property-test generators for money math, event-assertion APIs, or TTL expiry simulation, this crate is designed for you. Use it as a dev-dependency in your contract crate for unit and integration tests, or use the CLI for coverage analysis and static audits.
+
 ## Example
 
 A small escrow contract, tested end to end: mint a token, release it to
