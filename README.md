@@ -4,7 +4,7 @@
 
 Testing infrastructure for Soroban contracts: property-test generators for
 money math, an event-assertion API, ledger time and TTL-expiry control,
-token test doubles, and a coverage-aware CLI.
+token test doubles, authorization matrices, and a coverage-aware CLI.
 
 `soroban-sdk` ships `testutils`, which is adequate for basic unit tests. It
 is not adequate for testing contracts that hold money. Every serious
@@ -89,6 +89,46 @@ Conservation {
 
 A companion binary, `soroban-testkit-cli` (installs as `soroban-testkit`),
 for things that don't belong in a dev-dependency:
+
+### Installation
+
+Install the companion binary via `cargo install`:
+
+```sh
+# From crates.io
+cargo install soroban-testkit-cli --locked
+
+# Or from a local workspace checkout
+cargo install --path crates/cli --locked
+```
+
+Verify the installation:
+
+```sh
+soroban-testkit --help
+```
+
+### Clean environment validation
+
+To validate CLI installation in a clean temporary environment without modifying your global Cargo binary cache:
+
+```sh
+# Create an isolated temporary directory
+TMP_DIR=$(mktemp -d)
+
+# Install into the temporary root
+CARGO_INSTALL_ROOT="$TMP_DIR" cargo install --path crates/cli --locked
+
+# Validate the binary runs in the isolated environment
+"$TMP_DIR/bin/soroban-testkit" --help
+
+# Clean up
+rm -rf "$TMP_DIR"
+```
+
+A reproducible smoke-test script is also provided at [`scripts/smoke_test_cli_install.sh`](scripts/smoke_test_cli_install.sh) (runnable via `make smoke-test-install`).
+
+### Usage
 
 ```sh
 # Coverage for the WASM target (wraps cargo-llvm-cov, which needs no

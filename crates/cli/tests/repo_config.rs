@@ -384,3 +384,149 @@ fn seeding_guide_documents_review_criteria_and_bounded_batches() {
         assert!(section.contains(required), "§13 must contain `{required}`");
     }
 }
+
+// ---- #273: crates.io description review -------------------------------------
+
+#[test]
+fn testkit_manifest_description_accurately_summarizes_public_api() {
+    let manifest = read("crates/testkit/Cargo.toml");
+    let description_line = manifest
+        .lines()
+        .find(|l| l.starts_with("description = "))
+        .expect("crates/testkit/Cargo.toml must have a description");
+
+    for required_capability in [
+        "money-math generators",
+        "event assertions",
+        "ledger time",
+        "TTL control",
+        "token test doubles",
+        "authorization matrices",
+    ] {
+        assert!(
+            description_line.contains(required_capability),
+            "crates/testkit/Cargo.toml description must mention `{required_capability}`"
+        );
+    }
+}
+
+// ---- #272: contribution scope examples --------------------------------------
+
+#[test]
+fn contributing_documents_accepted_and_rejected_proposal_categories() {
+    let contributing = read("CONTRIBUTING.md");
+    let scope_section = contributing
+        .split("## Scope")
+        .nth(1)
+        .expect("CONTRIBUTING.md must have a `## Scope` section")
+        .split("\n## ")
+        .next()
+        .unwrap();
+
+    assert!(
+        scope_section.contains("### Accepted proposal categories (In Scope)"),
+        "CONTRIBUTING.md must document accepted proposal categories"
+    );
+    assert!(
+        scope_section.contains("### Rejected proposal categories (Out of Scope)"),
+        "CONTRIBUTING.md must document rejected proposal categories"
+    );
+
+    for expected_example in [
+        "Isolated test harness",
+        "Ledger time and clock control",
+        "Money math and invariants",
+        "Event assertions and capture",
+        "Token test doubles",
+        "Authorization matrices",
+        "TTL and storage expiry",
+        "Mainnet/testnet chain forking",
+        "Deployment & lifecycle operations",
+        "Frontend & cross-language testing",
+        "Network-dependent test utilities",
+    ] {
+        assert!(
+            scope_section.contains(expected_example),
+            "Scope section must mention `{expected_example}`"
+        );
+    }
+}
+
+// ---- #271: funding metadata validation --------------------------------------
+
+#[test]
+fn funding_metadata_follows_github_schema_with_active_destinations() {
+    let funding_json = read("FUNDING.json");
+    assert!(
+        !funding_json.contains("0x0000000000000000000000000000000000000000"),
+        "FUNDING.json must not use placeholder zero address"
+    );
+
+    let allowed_keys = [
+        "github",
+        "patreon",
+        "open_collective",
+        "ko_fi",
+        "tidelift",
+        "community_bridge",
+        "liberapay",
+        "issuehunt",
+        "polar",
+        "buy_me_a_coffee",
+        "custom",
+    ];
+
+    assert!(
+        allowed_keys
+            .iter()
+            .any(|key| funding_json.contains(&format!("\"{key}\""))),
+        "FUNDING.json must declare supported GitHub schema keys"
+    );
+
+    let funding_yml = read(".github/FUNDING.yml");
+    assert!(
+        allowed_keys
+            .iter()
+            .any(|key| funding_yml.contains(&format!("{key}:"))),
+        ".github/FUNDING.yml must declare supported GitHub schema keys"
+    );
+}
+
+// ---- #270: smoke test install docs ------------------------------------------
+
+#[test]
+fn readme_documents_clean_environment_install_validation() {
+    let readme = read("README.md");
+    let cli_section = readme
+        .split("## CLI")
+        .nth(1)
+        .expect("README.md must have a `## CLI` section")
+        .split("\n## ")
+        .next()
+        .unwrap();
+
+    assert!(
+        cli_section.contains("### Installation"),
+        "CLI section must have installation instructions"
+    );
+    assert!(
+        cli_section.contains("### Clean environment validation"),
+        "CLI section must document clean environment validation"
+    );
+    assert!(
+        cli_section.contains("CARGO_INSTALL_ROOT"),
+        "Installation docs must demonstrate isolated CARGO_INSTALL_ROOT"
+    );
+
+    let script_path = workspace_root().join("scripts/smoke_test_cli_install.sh");
+    assert!(
+        script_path.exists(),
+        "scripts/smoke_test_cli_install.sh must exist"
+    );
+
+    let makefile = read("Makefile");
+    assert!(
+        makefile.contains("smoke-test-install"),
+        "Makefile must have smoke-test-install target"
+    );
+}

@@ -1,0 +1,5 @@
+# GitHub Sponsors and funding configuration
+# Schema reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+github: [soroban-testkit]
+custom: ["https://github.com/soroban-testkit/testkit-blockchain"]

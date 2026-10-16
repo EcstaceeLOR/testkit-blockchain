@@ -1,7 +1,8 @@
 {
-  "drips": {
-    "ethereum": {
-      "ownedBy": "0x0000000000000000000000000000000000000000"
-    }
-  }
+  "github": [
+    "soroban-testkit"
+  ],
+  "custom": [
+    "https://github.com/soroban-testkit/testkit-blockchain"
+  ]
 }
