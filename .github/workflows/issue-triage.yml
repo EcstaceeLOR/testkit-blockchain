@@ -1,8 +1,8 @@
 name: Issue triage
 
-# Applies `module/*` / `docs` and `size/*` labels from the "Module" and
-# "Size" dropdowns in .github/ISSUE_TEMPLATE/*.yml, using the label taxonomy
-# in BUILD_SPEC.md §13.
+# Applies `module/*` / `docs`, `size/*`, and `severity/*` labels from the
+# "Module", "Size", and "Severity" dropdowns in .github/ISSUE_TEMPLATE/*.yml,
+# using the label taxonomy in BUILD_SPEC.md §13.
 #
 # Safety bounds:
 # - Runs only when an issue is opened, never on edits, so it cannot fight a
@@ -44,8 +44,11 @@ jobs:
               's (under an hour)': 'size/s',
               'm (a sitting)': 'size/m',
               'l (multiple sittings)': 'size/l',
+              'critical (incorrect results or a crash with no workaround)': 'severity/critical',
+              'high (incorrect results or a crash with a workaround)': 'severity/high',
+              'low (cosmetic, docs, or minor inconvenience)': 'severity/low',
             };
-            const FIELDS = ['Module', 'Size'];
+            const FIELDS = ['Module', 'Size', 'Severity'];
 
             // Issue forms render each field as "### <label>\n\n<value>".
             const body = context.payload.issue.body || '';

@@ -44,6 +44,31 @@ fn run_with_stdin(args: &[&str], stdin: &str) -> Output {
 }
 
 #[test]
+fn no_subcommand_shows_concise_usage_and_exits_non_zero() {
+    let output = run(&[]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success(), "stderr: {stderr}");
+    assert!(stderr.contains("Usage:"), "{stderr}");
+    assert!(stderr.contains("soroban-testkit"), "{stderr}");
+    // Concise: a missing-subcommand error, not a panic or backtrace.
+    assert!(!stderr.contains("panicked"), "{stderr}");
+    assert!(!stderr.contains("RUST_BACKTRACE"), "{stderr}");
+}
+
+#[test]
+fn help_invocation_succeeds_and_lists_subcommands() {
+    let output = run(&["--help"]);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success(), "stdout: {stdout}");
+    assert!(stdout.contains("Usage:"), "{stdout}");
+    assert!(stdout.contains("coverage"), "{stdout}");
+    assert!(stdout.contains("limits"), "{stdout}");
+    assert!(stdout.contains("audit"), "{stdout}");
+}
+
+#[test]
 fn audit_reports_findings_against_vault() {
     let output = run(&["audit", "examples/vault/src"]);
     let stdout = String::from_utf8_lossy(&output.stdout);

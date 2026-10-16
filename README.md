@@ -181,6 +181,21 @@ cargo test --workspace --offline
 `--offline` makes Cargo error immediately if any dependency would need a
 network fetch, instead of silently falling back to it.
 
+## Supported versions
+
+- **Rust:** the `stable` channel pinned in
+  [`rust-toolchain.toml`](rust-toolchain.toml). There is no separate MSRV —
+  the pinned stable toolchain is the only version CI runs against. See
+  [CONTRIBUTING.md's Rust edition policy](CONTRIBUTING.md#rust-edition-policy)
+  for how and when that pin moves.
+- **`soroban-sdk`:** the version pinned in `[workspace.dependencies]` in the
+  root `Cargo.toml` is the only version this crate is tested against for
+  every PR. A weekly `scheduled-sdk-check` CI job additionally builds and
+  tests the workspace against whatever version crates.io currently
+  considers latest, independent of that pin, and opens a tracking issue if
+  a newer release breaks compatibility — so drift is caught before a
+  contributor hits it, without requiring every PR to track upstream.
+
 ## Status
 
 This crate is under active development. See `BUILD_SPEC.md` for the build
