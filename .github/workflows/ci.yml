@@ -9,6 +9,15 @@ on:
     - cron: '0 6 * * 1'
   workflow_dispatch: {}
 
+# Least-privilege GITHUB_TOKEN. Every job inherits read-only access to the
+# repository contents and nothing else. A job that needs more declares its
+# own `permissions:` block (which replaces this default, so it must restate
+# `contents: read`) with a comment saying why. See CONTRIBUTING.md
+# "CI workflow permissions"; the `lint` job and `crates/cli/tests/repo_config.rs`
+# fail if a workflow drops this block or grants `write-all`.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -24,6 +33,46 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Rust edition policy (see CONTRIBUTING.md)
+        run: |
+          status=0
+          if ! grep -qxF 'edition = "2021"' Cargo.toml; then
+            echo "::error file=Cargo.toml::workspace edition must be declared in [workspace.package]"
+            status=1
+          fi
+          for manifest in crates/*/Cargo.toml examples/*/Cargo.toml; do
+            if ! grep -qxF 'edition.workspace = true' "$manifest"; then
+              echo "::error file=$manifest::must set 'edition.workspace = true'"
+              status=1
+            fi
+          done
+          exit $status
+      - name: Library and CLI stay decoupled (see ARCHITECTURE.md)
+        run: |
+          status=0
+          if cargo tree -p soroban-testkit -e normal --prefix none | grep -q '^soroban-testkit-cli v'; then
+            echo "::error::soroban-testkit must not depend on soroban-testkit-cli"
+            status=1
+          fi
+          if cargo tree -p soroban-testkit-cli -e normal --prefix none | grep -q '^soroban-testkit v'; then
+            echo "::error::soroban-testkit-cli must not depend on soroban-testkit"
+            status=1
+          fi
+          exit $status
+      - name: Workflow token permissions are least-privilege (see CONTRIBUTING.md)
+        run: |
+          status=0
+          for workflow in .github/workflows/*.yml; do
+            if ! grep -q '^permissions:' "$workflow"; then
+              echo "::error file=$workflow::must declare a top-level 'permissions:' block"
+              status=1
+            fi
+            if grep -Eq 'permissions:[[:space:]]*(write-all|read-all)' "$workflow"; then
+              echo "::error file=$workflow::must not use 'write-all' or 'read-all'; list each scope"
+              status=1
+            fi
+          done
+          exit $status
 
   test:
     name: build + test
@@ -49,6 +98,10 @@ jobs:
       - run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
+      - name: docs.rs configuration (mirrors [package.metadata.docs.rs])
+        run: cargo doc -p soroban-testkit --no-deps --target x86_64-unknown-linux-gnu
+        env:
+          RUSTDOCFLAGS: --cfg docsrs -D warnings
 
   audit:
     name: cargo audit
@@ -91,6 +144,12 @@ jobs:
     # PR. Also runnable on demand from the Actions tab.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # `issues: write` is needed only by the failure step below, which opens
+    # a tracking issue. This job never runs on pull_request, so PR code never
+    # holds a write token.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

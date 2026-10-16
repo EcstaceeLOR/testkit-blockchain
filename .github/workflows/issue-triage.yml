@@ -1,0 +1,74 @@
+name: Issue triage
+
+# Applies `module/*` / `docs` and `size/*` labels from the "Module" and
+# "Size" dropdowns in .github/ISSUE_TEMPLATE/*.yml, using the label taxonomy
+# in BUILD_SPEC.md §13.
+#
+# Safety bounds:
+# - Runs only when an issue is opened, never on edits, so it cannot fight a
+#   maintainer who relabels an issue later.
+# - Only adds labels from the fixed LABELS allowlist below; free text in the
+#   issue body never becomes a label, and nothing is removed.
+# - No checkout and no shell step: the issue body is read from the event
+#   payload inside github-script, never interpolated into a command.
+# - Token scope is `issues: write` on this one job and nothing else.
+#
+# crates/cli/tests/repo_config.rs checks these conditions and that every
+# dropdown option has an entry in LABELS.
+
+on:
+  issues:
+    types: [opened]
+
+permissions: {}
+
+jobs:
+  label:
+    name: label from issue form
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const LABELS = {
+              'core (crates/testkit/src/core/)': 'module/core',
+              'money (crates/testkit/src/money/)': 'module/money',
+              'events (crates/testkit/src/events/)': 'module/events',
+              'auth (crates/testkit/src/auth/)': 'module/auth',
+              'ttl (crates/testkit/src/ttl/)': 'module/ttl',
+              'cli (crates/cli/)': 'module/cli',
+              'docs only (no public API change)': 'docs',
+              'not sure (maintainers will triage)': null,
+              's (under an hour)': 'size/s',
+              'm (a sitting)': 'size/m',
+              'l (multiple sittings)': 'size/l',
+            };
+            const FIELDS = ['Module', 'Size'];
+
+            // Issue forms render each field as "### <label>\n\n<value>".
+            const body = context.payload.issue.body || '';
+            const labels = [];
+            for (const section of body.split(/^### /m).slice(1)) {
+              const newline = section.indexOf('\n');
+              if (newline === -1) continue;
+              const heading = section.slice(0, newline).trim();
+              const value = section.slice(newline + 1).trim();
+              if (!FIELDS.includes(heading)) continue;
+              if (!Object.hasOwn(LABELS, value)) continue;
+              const label = LABELS[value];
+              if (label) labels.push(label);
+            }
+
+            if (labels.length === 0) {
+              core.info('no recognized form selections; leaving labels unchanged');
+              return;
+            }
+            core.info(`adding labels: ${labels.join(', ')}`);
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              labels,
+            });

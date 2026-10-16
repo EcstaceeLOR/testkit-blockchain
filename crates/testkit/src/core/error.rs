@@ -51,6 +51,16 @@ impl TestkitError {
     /// | [`TestkitError::DecodeFailed`] | `TESTKIT_DECODE_FAILED` |
     /// | [`TestkitError::Misuse`] | `TESTKIT_MISUSE` |
     ///
+    /// ## Changelog
+    ///
+    /// Tooling authors matching on `code()` should watch this crate's
+    /// release notes for entries here. New rows only ever *add* a code;
+    /// existing rows never change.
+    ///
+    /// | Version | Change |
+    /// |---|---|
+    /// | 0.1.0 | Initial codes: `TESTKIT_ASSERTION_FAILED`, `TESTKIT_DECODE_FAILED`, `TESTKIT_MISUSE` |
+    ///
     /// # Example
     ///
     /// ```
@@ -154,5 +164,24 @@ mod tests {
     fn code_is_not_added_to_the_display_message() {
         let err = TestkitError::Misuse("boom".into());
         assert!(!err.to_string().contains(err.code()));
+    }
+
+    #[test]
+    fn representative_diagnostics_snapshot() {
+        let snapshot = [
+            TestkitError::AssertionFailed("expected balance of `alice` to be 100, found 90".into())
+                .to_string(),
+            TestkitError::DecodeFailed("expected i128, got Symbol".into()).to_string(),
+            TestkitError::Misuse("advance_days(2) requires a positive duration".into()).to_string(),
+        ];
+
+        assert_eq!(
+            snapshot,
+            [
+                "assertion failed: expected balance of `alice` to be 100, found 90",
+                "failed to decode value: expected i128, got Symbol",
+                "misuse of testkit API: advance_days(2) requires a positive duration",
+            ]
+        );
     }
 }

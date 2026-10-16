@@ -2,11 +2,36 @@ name: Bug report
 description: Something in soroban-testkit doesn't behave as documented
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, review the [scope boundaries](../../BUILD_SPEC.md#3-scope-boundaries),
+        [architecture](../../ARCHITECTURE.md), and
+        [contribution guidance](../../CONTRIBUTING.md).
   - type: textarea
     id: problem
     attributes:
       label: Problem
       description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  # Applied as a label by .github/workflows/issue-triage.yml. Keep option
+  # text in sync with the LABELS map there; crates/cli/tests/repo_config.rs
+  # enforces it.
+  - type: dropdown
+    id: module-select
+    attributes:
+      label: Module
+      description: Which module is affected? Applied as a label automatically.
+      options:
+        - core (crates/testkit/src/core/)
+        - money (crates/testkit/src/money/)
+        - events (crates/testkit/src/events/)
+        - auth (crates/testkit/src/auth/)
+        - ttl (crates/testkit/src/ttl/)
+        - cli (crates/cli/)
+        - docs only (no public API change)
+        - not sure (maintainers will triage)
     validations:
       required: true
   - type: input

@@ -5,7 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Check `BUILD_SPEC.md` §3 (Scope boundaries) first. Proposals for
+        Before filing, review the [scope boundaries](../../BUILD_SPEC.md#3-scope-boundaries),
+        [architecture](../../ARCHITECTURE.md), and
+        [contribution guidance](../../CONTRIBUTING.md). Proposals for
         mainnet/testnet forking, deployment tooling, frontend/JS testing,
         a test runner, or network-dependent features will be declined.
   - type: textarea
@@ -15,6 +17,36 @@ body:
       description: What testing gap does this fill?
     validations:
       required: true
+  # The "Module" and "Size" selections are turned into labels by
+  # .github/workflows/issue-triage.yml. Keep option text in sync with the
+  # LABELS map there; crates/cli/tests/repo_config.rs enforces it.
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      description: Which module does this change? Applied as a label automatically.
+      options:
+        - core (crates/testkit/src/core/)
+        - money (crates/testkit/src/money/)
+        - events (crates/testkit/src/events/)
+        - auth (crates/testkit/src/auth/)
+        - ttl (crates/testkit/src/ttl/)
+        - cli (crates/cli/)
+        - docs only (no public API change)
+        - not sure (maintainers will triage)
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: Rough effort estimate. Maintainers may adjust it.
+      options:
+        - s (under an hour)
+        - m (a sitting)
+        - l (multiple sittings)
+    validations:
+      required: false
   - type: input
     id: paths
     attributes:

@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use clap::Args;
@@ -7,22 +8,34 @@ use syn::visit::{self, Visit};
 use syn::{BinOp, Expr, FnArg, ImplItemFn, ItemFn, Local, Pat, Signature, Type};
 use walkdir::WalkDir;
 
+use super::output::Output;
 use super::CliError;
 
 /// Arguments for `soroban-testkit audit`.
 #[derive(Args)]
 pub struct AuditArgs {
     /// Path to the contract crate to audit (its `.rs` files are scanned
-    /// recursively).
+    /// recursively). Pass `-` to read a single source file from stdin
+    /// instead, for editor integrations that audit unsaved buffers.
     #[arg(value_name = "PATH", default_value = ".")]
     path: PathBuf,
     /// Exit non-zero if any findings are reported.
     #[arg(long)]
     strict: bool,
+    /// Print findings as a JSON document instead of text. The document
+    /// carries `schema_version`; see [`AUDIT_JSON_SCHEMA_VERSION`].
+    #[arg(long)]
+    json: bool,
 }
 
+/// Version of the `audit --json` document shape. Bump it on any breaking
+/// change: a removed or renamed field, or a changed type or meaning.
+/// Adding a new field is not breaking and keeps the same version.
+const AUDIT_JSON_SCHEMA_VERSION: u32 = 1;
+
 struct Finding {
-    file: PathBuf,
+    /// See [`finding_path`].
+    file: String,
     line: usize,
     rule: &'static str,
     severity: &'static str,
@@ -40,37 +53,52 @@ struct Finding {
 ///    outside a `checked_`/`saturating_`/`wrapping_` call.
 /// 3. A `.persistent()`/`.temporary()` storage read with no
 ///    `.extend_ttl(` call anywhere in the same function.
-pub fn run(args: AuditArgs) -> Result<(), CliError> {
+///
+/// Finding paths are relative to the audited `PATH` and `/`-separated (see
+/// [`finding_path`]), so the same crate reports the same paths whichever
+/// directory the command runs from.
+pub fn run(args: AuditArgs, out: Output) -> Result<(), CliError> {
     let mut findings = Vec::new();
 
-    for entry in WalkDir::new(&args.path).into_iter().filter_map(Result::ok) {
-        if !entry.file_type().is_file() {
-            continue;
+    if args.path == Path::new("-") {
+        let mut src = String::new();
+        std::io::stdin()
+            .read_to_string(&mut src)
+            .map_err(|err| CliError(format!("failed to read stdin: {err}")))?;
+        audit_source(&src, "<stdin>", &mut findings);
+    } else {
+        for entry in WalkDir::new(&args.path).into_iter().filter_map(Result::ok) {
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            if entry.path().extension().is_none_or(|ext| ext != "rs") {
+                continue;
+            }
+            out.detail(format!("scanning {}", entry.path().display()));
+            audit_file(
+                entry.path(),
+                &finding_path(&args.path, entry.path()),
+                &mut findings,
+            )?;
         }
-        if entry.path().extension().is_none_or(|ext| ext != "rs") {
-            continue;
-        }
-        audit_file(entry.path(), &mut findings)?;
     }
 
-    if findings.is_empty() {
-        println!("audit: no findings");
+    if args.json {
+        println!("{}", render_json(&findings));
+    } else if findings.is_empty() {
+        out.note("audit: no findings");
     } else {
         for finding in &findings {
             println!(
                 "{}:{}: [{}] {}: {}",
-                finding.file.display(),
-                finding.line,
-                finding.severity,
-                finding.rule,
-                finding.message
+                finding.file, finding.line, finding.severity, finding.rule, finding.message
             );
         }
-        println!(
+        out.note(format!(
             "\n{} finding(s). soroban-testkit audit is a linter with three heuristics, not a \
              security product — a missing finding is not a security guarantee.",
             findings.len()
-        );
+        ));
     }
 
     if args.strict && !findings.is_empty() {
@@ -82,24 +110,101 @@ pub fn run(args: AuditArgs) -> Result<(), CliError> {
     Ok(())
 }
 
-fn audit_file(path: &Path, findings: &mut Vec<Finding>) -> Result<(), CliError> {
+/// Renders findings as the `audit --json` document, schema version
+/// [`AUDIT_JSON_SCHEMA_VERSION`]:
+///
+/// ```json
+/// {"schema_version":1,"disclaimer":"...","finding_count":1,"findings":[{"file":"src/lib.rs","line":7,"severity":"warning","rule":"missing-require-auth","message":"..."}]}
+/// ```
+fn render_json(findings: &[Finding]) -> String {
+    let disclaimer = "soroban-testkit audit is a linter with three heuristics, not a security \
+                      product — a missing finding is not a security guarantee.";
+    let items: Vec<String> = findings
+        .iter()
+        .map(|finding| {
+            format!(
+                "{{\"file\":{},\"line\":{},\"severity\":{},\"rule\":{},\"message\":{}}}",
+                json_string(&finding.file),
+                finding.line,
+                json_string(finding.severity),
+                json_string(finding.rule),
+                json_string(&finding.message),
+            )
+        })
+        .collect();
+    format!(
+        "{{\"schema_version\":{AUDIT_JSON_SCHEMA_VERSION},\"disclaimer\":{},\"finding_count\":{},\"findings\":[{}]}}",
+        json_string(disclaimer),
+        findings.len(),
+        items.join(",")
+    )
+}
+
+/// Quotes and escapes `value` as a JSON string. Hand-rolled so the audit
+/// command takes no serialization dependency for one small document.
+fn json_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// The path a finding in `file` is reported under: relative to the audited
+/// `root` with `/` separators, e.g. `src/lib.rs` for `root = "."` or
+/// `lib.rs` for `root = "examples/vault/src"`. When `root` is the file
+/// itself, its file name is used. Falls back to `file` as given if it is
+/// not under `root`.
+fn finding_path(root: &Path, file: &Path) -> String {
+    let relative = match file.strip_prefix(root) {
+        Ok(rel) if rel.as_os_str().is_empty() => file.file_name().map(Path::new).unwrap_or(file),
+        Ok(rel) => rel,
+        Err(_) => file,
+    };
+    relative
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn audit_file(path: &Path, display: &str, findings: &mut Vec<Finding>) -> Result<(), CliError> {
     let src = std::fs::read_to_string(path)
         .map_err(|err| CliError(format!("failed to read {}: {err}", path.display())))?;
-    let file = match syn::parse_file(&src) {
-        Ok(file) => file,
-        Err(_) => return Ok(()), // Not every .rs file under a crate root need parse standalone.
-    };
-
-    let mut visitor = FunctionVisitor {
-        path: path.to_path_buf(),
-        findings,
-    };
-    visitor.visit_file(&file);
+    audit_source(&src, display, findings);
     Ok(())
 }
 
+/// Parses `src` (the contents of a single `.rs` file, attributed to
+/// `display` in findings) and walks it for audit findings. An empty or
+/// unparseable source produces zero findings rather than an error —
+/// not every `.rs` file under a crate root need parse standalone, and
+/// a stdin editor buffer may be mid-edit.
+fn audit_source(src: &str, display: &str, findings: &mut Vec<Finding>) {
+    let file = match syn::parse_file(src) {
+        Ok(file) => file,
+        Err(_) => return,
+    };
+
+    let mut visitor = FunctionVisitor {
+        path: display.to_string(),
+        findings,
+    };
+    visitor.visit_file(&file);
+}
+
 struct FunctionVisitor<'a> {
-    path: PathBuf,
+    path: String,
     findings: &'a mut Vec<Finding>,
 }
 
@@ -228,7 +333,7 @@ fn line_of(node: impl quote::ToTokens) -> usize {
 /// typed `i128`, and a plain string search over the token stream can't
 /// tell an `i128` value from the substring appearing anywhere else.
 struct I128ArithmeticVisitor<'a> {
-    path: PathBuf,
+    path: String,
     fn_name: String,
     fn_line: usize,
     i128_bindings: HashSet<String>,
@@ -286,4 +391,66 @@ impl I128ArithmeticVisitor<'_> {
 
 fn type_is_i128(ty: &Type) -> bool {
     matches!(ty, Type::Path(p) if p.path.is_ident("i128"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_document_declares_schema_version_and_findings() {
+        let findings = vec![Finding {
+            file: "src/lib.rs".to_string(),
+            line: 7,
+            rule: "missing-require-auth",
+            severity: "warning",
+            message: "fn pay takes Address parameter(s) [\"from\"]".to_string(),
+        }];
+        let json = render_json(&findings);
+        assert!(json.starts_with("{\"schema_version\":1,"), "{json}");
+        assert!(json.contains("\"finding_count\":1"), "{json}");
+        assert!(json.contains("\"line\":7"), "{json}");
+        assert!(json.contains("\"rule\":\"missing-require-auth\""), "{json}");
+        assert!(json.contains(r#"[\"from\"]"#), "{json}");
+    }
+
+    #[test]
+    fn json_document_for_no_findings_is_an_empty_list() {
+        let json = render_json(&[]);
+        assert!(json.ends_with(",\"finding_count\":0,\"findings\":[]}"), "{json}");
+    }
+
+    #[test]
+    fn finding_paths_are_relative_to_the_audited_root() {
+        let p = |s: &str| PathBuf::from(s);
+        assert_eq!(finding_path(&p("."), &p("./src/lib.rs")), "src/lib.rs");
+        assert_eq!(
+            finding_path(&p("examples/vault/src"), &p("examples/vault/src/lib.rs")),
+            "lib.rs"
+        );
+        assert_eq!(
+            finding_path(&p("/abs/crate"), &p("/abs/crate/src/nested/mod.rs")),
+            "src/nested/mod.rs"
+        );
+    }
+
+    #[test]
+    fn a_single_file_root_reports_its_file_name() {
+        let file = PathBuf::from("crates/cli/src/commands/mod.rs");
+        assert_eq!(finding_path(&file, &file), "mod.rs");
+    }
+
+    #[test]
+    fn a_file_outside_the_root_keeps_its_given_path() {
+        assert_eq!(
+            finding_path(Path::new("src"), Path::new("other/lib.rs")),
+            "other/lib.rs"
+        );
+    }
+
+    #[test]
+    fn json_strings_escape_quotes_backslashes_and_control_characters() {
+        let expected = "\"a\\\"b\\\\c\\nd\\u0001\"";
+        assert_eq!(json_string("a\"b\\c\nd\u{1}"), expected);
+    }
 }

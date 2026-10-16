@@ -49,8 +49,8 @@ impl Escrow {
 # fn main() {
 let env = TestEnv::new();
 let token = env.token();
-let buyer = env.address();
-let seller = env.address();
+let [buyer, seller]: [soroban_sdk::Address; 2] =
+    env.addresses(2).try_into().unwrap();
 token.mint(&buyer, 100);
 
 let escrow_id = env.env().register(Escrow, ());
@@ -175,6 +175,79 @@ Issues describe intended work, not release promises. Mainnet/testnet forking,
 deployment tooling, frontend testing, a test runner, a full benchmarking
 framework, and network-dependent test behavior remain out of scope; see
 [`BUILD_SPEC.md` §3](BUILD_SPEC.md#3-scope-boundaries).
+
+`audit` reports each finding's path relative to the audited `PATH`, with
+`/` separators, so `soroban-testkit audit src` run from the crate and
+`soroban-testkit audit my_contract/src` run from its parent both print
+`lib.rs:12: ...`. When `PATH` is a single file, its file name is used.
+
+### Coverage thresholds
+
+`--fail-under PCT` makes `coverage` exit non-zero when **line** coverage is
+below `PCT`. It is forwarded unchanged to cargo-llvm-cov as
+`--fail-under-lines PCT`, so cargo-llvm-cov does the measuring and the
+comparison; it combines with any `--format`. Requires
+`cargo install cargo-llvm-cov`. Running the command locally makes no
+network access.
+
+```sh
+# Exits 0 if line coverage is >= 80%, otherwise prints the report and
+# fails with: error: coverage run failed (cargo llvm-cov exited with ...)
+soroban-testkit coverage --fail-under 80
+
+# Same threshold, writing lcov.info for an IDE or CI upload step.
+soroban-testkit coverage --format lcov --fail-under 92.5
+
+# What actually runs (shown with --verbose):
+#   cargo llvm-cov test --fail-under-lines 80
+soroban-testkit --verbose coverage --fail-under 80
+```
+
+In CI, run it as an ordinary step; its exit code gates the job.
+
+### Output controls
+
+These global flags go before or after the subcommand:
+
+| Flag | Effect |
+| --- | --- |
+| `--no-color` | No ANSI color codes, including from the `cargo` that `coverage` runs. A non-empty `NO_COLOR` environment variable does the same. Color is only ever written to a terminal, so piped output is already plain. |
+| `-q`, `--quiet` | Results and errors only: drops advisory notes such as the `audit` disclaimer and "no findings". Passes `--quiet` to cargo-llvm-cov. |
+| `-v`, `--verbose` | Extra diagnostics on stderr (files scanned, commands run, each `limits` probe). Passes `--verbose` to cargo-llvm-cov. Stdout is unchanged. |
+
+`--quiet` and `--verbose` cannot be combined. Findings, measured limits,
+`--json` documents, and errors are printed at every level.
+
+## Offline install
+
+Contributors working without network access to crates.io can prefetch and
+verify dependencies ahead of time, then build and test fully offline:
+
+```sh
+# On a machine with network access: fetch every dependency into the
+# local Cargo registry cache and vendor it alongside the workspace.
+cargo vendor --locked vendor > cargo-vendor-config.toml
+
+# Copy `vendor/` and `cargo-vendor-config.toml` to the offline machine,
+# then point Cargo at the vendored sources instead of crates.io by
+# appending the generated config to .cargo/config.toml:
+mkdir -p .cargo
+cat cargo-vendor-config.toml >> .cargo/config.toml
+```
+
+With the vendor directory in place, `cargo build`, `cargo test
+--workspace`, and `cargo doc --workspace` all resolve dependencies from
+`vendor/` with no network access. `cargo vendor --locked` fails loudly if
+`Cargo.lock` and the registry disagree, so re-run it after any dependency
+bump rather than editing `vendor/` by hand. Verify the result before
+relying on it:
+
+```sh
+cargo test --workspace --offline
+```
+
+`--offline` makes Cargo error immediately if any dependency would need a
+network fetch, instead of silently falling back to it.
 
 ## Status
 

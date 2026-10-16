@@ -78,6 +78,44 @@ that isn't specific to being a CLI (e.g. "how do I build a contract to
 wasm") belongs in the `testkit` library so it stays usable outside the
 CLI.
 
+## Dependency boundaries
+
+The library and the CLI are independent packages: neither depends on the
+other, and both only depend on `soroban-sdk` for contract-facing code.
+Keep it that way — a dependency that crosses this boundary is a design
+change, not a routine `cargo add`.
+
+| Package | Normal dependencies | Dev-dependencies |
+|---|---|---|
+| `soroban-testkit` (`crates/testkit`) | `soroban-sdk` (feature `testutils`), `thiserror` | `vault` (`examples/vault`, feature `testutils`) |
+| `soroban-testkit-cli` (`crates/cli`) | `soroban-sdk` (feature `testutils`), `soroban-spec`, `clap`, `syn`, `quote`, `proc-macro2`, `walkdir` | — |
+
+What this means in practice:
+
+- **`soroban-testkit` has no Cargo features of its own.** `soroban-sdk`'s
+  `testutils` feature is always enabled, so the library is only meaningful
+  as a `[dev-dependencies]` entry in a contract crate. Do not add it under
+  `[dependencies]` of a contract.
+- **CLI-only crates stay in `crates/cli`.** `syn`, `walkdir`, `clap`, and
+  `soroban-spec` must never be pulled into `crates/testkit`; the library
+  must remain usable without a parser or argument-handling stack.
+- **The CLI never links the library.** Logic shared by both belongs in
+  `soroban-testkit`, and the CLI calls it through public items only.
+- **`examples/vault` is a dev-only fixture.** It appears in the library's
+  dev-dependencies and is built by the CLI's integration tests as a
+  subprocess (`cargo build -p vault`), not as a Cargo dependency of the CLI.
+
+To verify the map locally:
+
+```sh
+cargo tree -p soroban-testkit -e normal          # no soroban-testkit-cli
+cargo tree -p soroban-testkit-cli -e normal      # no soroban-testkit
+cargo tree -p soroban-testkit -e dev             # vault appears only here
+```
+
+CI's `lint` job runs the first two checks and fails if either package
+depends on the other.
+
 ## Data flow: a typical test
 
 1. A contract test constructs a [`TestEnv`] (`core`), which wraps

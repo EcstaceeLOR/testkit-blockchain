@@ -7,6 +7,7 @@ use soroban_sdk::token::StellarAssetClient;
 use soroban_sdk::xdr::{ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef};
 use soroban_sdk::{Address, Env, IntoVal, Symbol, Val, Vec as SVec};
 
+use super::output::Output;
 use super::CliError;
 
 /// Arguments for `soroban-testkit limits`.
@@ -75,7 +76,7 @@ pub struct ProbeArgs {
 /// this crate deliberately avoids — see its "zero network access"
 /// constraint). Only CPU instructions and memory, available locally via
 /// the host's budget, are reported.
-pub fn run(args: LimitsArgs) -> Result<(), CliError> {
+pub fn run(args: LimitsArgs, out: Output) -> Result<(), CliError> {
     // Validate the configuration (function exists, ramp parameter exists,
     // every parameter's type is one this command knows how to default or
     // ramp) up front, in-process, before spawning any probes — this is
@@ -105,6 +106,11 @@ pub fn run(args: LimitsArgs) -> Result<(), CliError> {
             .stderr(std::process::Stdio::null())
             .status()
             .map_err(|err| CliError(format!("failed to spawn probe: {err}")))?;
+        out.detail(format!(
+            "probe {}={value}: {}",
+            args.ramp,
+            if status.success() { "ok" } else { "failed" }
+        ));
         Ok(status.success())
     };
 
@@ -165,9 +171,9 @@ pub fn run(args: LimitsArgs) -> Result<(), CliError> {
     );
     println!("  instructions: {instructions}");
     println!("  memory bytes: {memory_bytes}");
-    println!(
+    out.note(
         "  (ledger reads/writes and transaction size are not measured by this command; \
-         see --help)"
+         see --help)",
     );
 
     Ok(())
@@ -243,24 +249,8 @@ fn load(
     let entries = soroban_spec::read::from_wasm(&wasm)
         .map_err(|err| CliError(format!("failed to read contract spec: {err}")))?;
 
-    let func_spec = entries
-        .into_iter()
-        .find_map(|entry| match entry {
-            ScSpecEntry::FunctionV0(f) if f.name.to_string() == function => Some(f),
-            _ => None,
-        })
-        .ok_or_else(|| {
-            CliError(format!(
-                "no function named {function:?} in {}'s spec",
-                contract.display()
-            ))
-        })?;
-
-    let ramp_index = func_spec
-        .inputs
-        .iter()
-        .position(|input| input.name.to_utf8_string_lossy() == ramp)
-        .ok_or_else(|| CliError(format!("{function:?} has no parameter named {ramp:?}")))?;
+    let func_spec = find_function_spec(entries, contract, function)?;
+    let ramp_index = ramp_index_of(&func_spec, function, ramp)?;
 
     let env = Env::new_with_config(soroban_sdk::testutils::EnvTestConfig {
         capture_snapshot_at_drop: false,
@@ -275,6 +265,41 @@ fn load(
     let contract_id = env.register(wasm.as_slice(), ());
 
     Ok((contract_id, env, func_spec, ramp_index))
+}
+
+/// Picks `function` out of a contract's spec entries. Split out of [`load`]
+/// so the lookup can be tested against hand-built spec fixtures, without a
+/// compiled `.wasm`.
+fn find_function_spec(
+    entries: Vec<ScSpecEntry>,
+    contract: &std::path::Path,
+    function: &str,
+) -> Result<ScSpecFunctionV0, CliError> {
+    entries
+        .into_iter()
+        .find_map(|entry| match entry {
+            ScSpecEntry::FunctionV0(f) if f.name.to_string() == function => Some(f),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            CliError(format!(
+                "no function named {function:?} in {}'s spec",
+                contract.display()
+            ))
+        })
+}
+
+/// Returns the position of the `--ramp` parameter in `func_spec`'s inputs.
+fn ramp_index_of(
+    func_spec: &ScSpecFunctionV0,
+    function: &str,
+    ramp: &str,
+) -> Result<usize, CliError> {
+    func_spec
+        .inputs
+        .iter()
+        .position(|input| input.name.to_utf8_string_lossy() == ramp)
+        .ok_or_else(|| CliError(format!("{function:?} has no parameter named {ramp:?}")))
 }
 
 fn build_args(
@@ -389,5 +414,172 @@ fn default_val(
              today, every other parameter needs a supported default type",
             input.name.to_utf8_string_lossy()
         ))),
+    }
+}
+
+/// Spec fixtures built by hand from the XDR types, so the parsing and
+/// ramp/default logic is tested for every supported `ScSpecTypeDef` without
+/// building a `.wasm` first.
+#[cfg(test)]
+mod tests {
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::xdr::{ScSpecTypeMap, ScSpecTypeVec, ScSymbol};
+
+    use super::*;
+
+    fn vec_of(element: ScSpecTypeDef) -> ScSpecTypeDef {
+        ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(element),
+        }))
+    }
+
+    fn input(name: &str, type_: ScSpecTypeDef) -> ScSpecFunctionInputV0 {
+        ScSpecFunctionInputV0 {
+            doc: "".try_into().expect("empty doc fits"),
+            name: name.try_into().expect("fixture name fits in 30 bytes"),
+            type_,
+        }
+    }
+
+    fn function(name: &str, inputs: Vec<ScSpecFunctionInputV0>) -> ScSpecFunctionV0 {
+        ScSpecFunctionV0 {
+            doc: "".try_into().expect("empty doc fits"),
+            name: ScSymbol(name.try_into().expect("fixture name fits in 32 bytes")),
+            inputs: inputs.try_into().expect("fixture has at most 10 inputs"),
+            outputs: Vec::<ScSpecTypeDef>::new().try_into().expect("no outputs"),
+        }
+    }
+
+    /// Every type `--ramp` accepts. Keep in sync with [`ramp_val`].
+    fn ramp_types() -> Vec<ScSpecTypeDef> {
+        vec![
+            ScSpecTypeDef::U32,
+            ScSpecTypeDef::I32,
+            ScSpecTypeDef::U64,
+            ScSpecTypeDef::I64,
+            ScSpecTypeDef::U128,
+            ScSpecTypeDef::I128,
+            vec_of(ScSpecTypeDef::Address),
+        ]
+    }
+
+    /// Every type a non-ramp parameter can default to. Keep in sync with
+    /// [`default_val`].
+    fn default_types() -> Vec<ScSpecTypeDef> {
+        vec![
+            ScSpecTypeDef::Address,
+            ScSpecTypeDef::Bool,
+            ScSpecTypeDef::U32,
+            ScSpecTypeDef::I32,
+            ScSpecTypeDef::U64,
+            ScSpecTypeDef::I64,
+            ScSpecTypeDef::U128,
+            ScSpecTypeDef::I128,
+            ScSpecTypeDef::Symbol,
+            ScSpecTypeDef::String,
+            ScSpecTypeDef::Bytes,
+            vec_of(ScSpecTypeDef::U32),
+        ]
+    }
+
+    #[test]
+    fn finds_the_named_function_among_other_entries() {
+        let entries = vec![
+            ScSpecEntry::FunctionV0(function("deposit", vec![])),
+            ScSpecEntry::FunctionV0(function("batch_payout", vec![])),
+        ];
+        let found = find_function_spec(entries, std::path::Path::new("vault.wasm"), "batch_payout")
+            .expect("batch_payout is in the spec");
+        assert_eq!(found.name.to_string(), "batch_payout");
+    }
+
+    #[test]
+    fn reports_a_missing_function_with_the_contract_path() {
+        let err = find_function_spec(
+            vec![ScSpecEntry::FunctionV0(function("deposit", vec![]))],
+            std::path::Path::new("vault.wasm"),
+            "withdraw",
+        )
+        .expect_err("withdraw is not in the spec");
+        assert!(err.0.contains("no function named \"withdraw\""), "{err}");
+        assert!(err.0.contains("vault.wasm"), "{err}");
+    }
+
+    #[test]
+    fn finds_the_ramp_parameter_position() {
+        let func = function(
+            "batch_payout",
+            vec![
+                input("funder", ScSpecTypeDef::Address),
+                input("recipients", vec_of(ScSpecTypeDef::Address)),
+            ],
+        );
+        assert_eq!(
+            ramp_index_of(&func, "batch_payout", "recipients")
+                .expect("recipients is an input"),
+            1
+        );
+    }
+
+    #[test]
+    fn reports_a_missing_ramp_parameter() {
+        let func = function("batch_payout", vec![input("funder", ScSpecTypeDef::Address)]);
+        let err = ramp_index_of(&func, "batch_payout", "recipients")
+            .expect_err("no such input");
+        assert!(err.0.contains("has no parameter named \"recipients\""), "{err}");
+    }
+
+    #[test]
+    fn every_supported_ramp_type_builds_a_value() {
+        let env = Env::default();
+        for ty in ramp_types() {
+            assert!(ramp_val(&env, &ty, 3).is_ok(), "ramp type {ty:?} should be supported");
+        }
+    }
+
+    #[test]
+    fn unsupported_ramp_types_are_rejected_with_an_actionable_message() {
+        let env = Env::default();
+        for ty in [ScSpecTypeDef::Bool, ScSpecTypeDef::Symbol, ScSpecTypeDef::String] {
+            let err = ramp_val(&env, &ty, 3).err().expect("not a ramp type");
+            assert!(err.0.contains("isn't supported yet"), "{err}");
+            assert!(err.0.contains("u32/i32/u64/i64/u128/i128"), "{err}");
+        }
+    }
+
+    #[test]
+    fn every_supported_default_type_builds_a_value() {
+        let env = Env::default();
+        let admin = soroban_sdk::Address::generate(&env);
+        for ty in default_types() {
+            let fixture = input("param", ty.clone());
+            assert!(
+                default_val(&env, &admin, &ty, &fixture).is_ok(),
+                "default type {ty:?} should be supported"
+            );
+        }
+    }
+
+    #[test]
+    fn a_parameter_named_token_gets_a_funded_token_contract() {
+        let env = Env::default();
+        let admin = soroban_sdk::Address::generate(&env);
+        let fixture = input("token", ScSpecTypeDef::Address);
+        assert!(default_val(&env, &admin, &ScSpecTypeDef::Address, &fixture).is_ok());
+    }
+
+    #[test]
+    fn unknown_default_types_are_rejected_with_an_actionable_message() {
+        let env = Env::default();
+        let admin = soroban_sdk::Address::generate(&env);
+        let ty = ScSpecTypeDef::Map(Box::new(ScSpecTypeMap {
+            key_type: Box::new(ScSpecTypeDef::Symbol),
+            value_type: Box::new(ScSpecTypeDef::U32),
+        }));
+        let fixture = input("balances", ty.clone());
+        let err = default_val(&env, &admin, &ty, &fixture)
+            .err()
+            .expect("Map has no default");
+        assert!(err.0.contains("doesn't know how to default"), "{err}");
     }
 }
