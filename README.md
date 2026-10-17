@@ -189,6 +189,27 @@ soroban-testkit limits --contract target/wasm32v1-none/release/my_contract.wasm 
 soroban-testkit audit ./src --strict
 ```
 
+### Failure examples
+
+Each command exits non-zero on failure, with the reason on stderr (#249):
+
+```sh
+# coverage: cargo-llvm-cov not installed, or the run itself fails
+$ soroban-testkit coverage
+error: failed to run `cargo llvm-cov` (No such file or directory); is cargo-llvm-cov installed? try `cargo install cargo-llvm-cov`
+$ soroban-testkit coverage --fail-under 90
+error: coverage run failed (cargo llvm-cov exited with exit status: 101)
+
+# limits: unknown --fn or --ramp parameter name
+$ soroban-testkit limits --contract target/wasm32v1-none/release/my_contract.wasm \
+  --fn batch_payout --ramp nonexistent_param
+error: "batch_payout" has no parameter named "nonexistent_param"
+
+# audit --strict: exits non-zero when findings exist (printed above this line)
+$ soroban-testkit audit ./src --strict
+error: 2 audit finding(s) (--strict)
+```
+
 `soroban-testkit audit` is a linter with three heuristics, not a security
 product. It can miss real bugs and flag non-bugs; a missing finding is not a
 security guarantee. This is the same bounded claim made by the command output
