@@ -94,6 +94,10 @@ fn audit_reports_no_findings_on_a_clean_directory() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success(), "stdout: {stdout}");
     assert!(stdout.contains("no findings"), "{stdout}");
+    assert!(
+        stdout.contains("a missing finding is not a security guarantee"),
+        "a clean run must still carry the disclaimer: {stdout}"
+    );
 }
 
 #[test]

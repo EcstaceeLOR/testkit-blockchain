@@ -57,12 +57,22 @@ let env = TestEnv::new();
 let token = env.token();
 let [buyer, seller]: [soroban_sdk::Address; 2] =
     env.addresses(2).try_into().unwrap();
+// `mint` takes whole tokens and scales by 10^decimals (7 for a SAC);
+// `mint_raw` takes base units (stroops) as-is. Both lines below fund
+// the buyer with 100 tokens = 1_000_000_000 base units.
 token.mint(&buyer, 100);
+let other_buyer = env.address();
+token.mint_raw(&other_buyer, 1_000_000_000);
+assert_eq!(token.balance(&buyer), token.balance(&other_buyer));
 
 let escrow_id = env.env().register(Escrow, ());
 let client = EscrowClient::new(env.env(), &escrow_id);
 
 env.env().mock_all_auths();
+// Capture scope: `events` holds only what this closure's call emitted.
+// Any later call, including a balance query, starts a new top-level
+// invocation, so inspect `events` here rather than re-reading the log
+// after subsequent calls. See EventLog's note on scope.
 let (_, events) = env.events_during(|| {
     client.release(&token.address(), &buyer, &seller, &1_000_000_000);
 });
@@ -70,8 +80,8 @@ events
     .from(&escrow_id)
     .assert_emitted(symbol_short!("release"));
 
-// Each of these balance queries is itself a top-level call, so check
-// them after reading events — see EventLog's note on scope.
+// Balances are asserted (in base units) only after the events above
+// were read.
 token.assert_balance(&buyer, 0);
 token.assert_balance(&seller, 1_000_000_000);
 
@@ -195,6 +205,20 @@ reported (they come from a network-side simulated footprint this crate
 doesn't produce); instructions and memory, measured locally, are. See
 [Limits command limitations](#limits-command).
 
+A run prints the last successful ramp value and exactly two measured
+fields, both from the local SDK budget:
+
+```text
+last successful recipients for "batch_payout": 37
+  instructions: 98213456
+  memory bytes: 4718592
+  (ledger reads/writes and transaction size are not measured by this command; see --help)
+```
+
+The numbers above are illustrative; the field names are not. `instructions`
+is the CPU-instruction count and `memory bytes` the memory budget consumed by
+one call at the reported value. Nothing else is measured.
+
 ## Known limitations
 
 These constraints follow from the current `soroban-sdk` test environment and
@@ -257,9 +281,20 @@ semantics are outside the current SDK testutils boundary.
 
 ### Audit command
 
-`audit` checks source syntax for three local patterns. It does not expand
-macros, follow calls into helper functions, or replace a contract security
-review, so both false positives and false negatives are expected.
+`audit` checks source syntax for three local patterns:
+
+- `missing-require-auth`: a function takes an `Address` parameter and its
+  body never calls `require_auth`.
+- `unchecked-i128-arithmetic`: `+`, `-`, `*`, or `/` on a value typed `i128`
+  in the same function, instead of a `checked_`/`saturating_`/`wrapping_`
+  method.
+- `missing-ttl-bump`: a persistent or temporary storage `get` with no
+  `extend_ttl` call in the same function body.
+
+It does not expand macros, follow calls into helper functions, or replace a
+contract security review, so both false positives and false negatives are
+expected. Every run that isn't `--quiet`, including one with no findings,
+ends with the same disclaimer: a missing finding is not a security guarantee.
 
 ## Roadmap
 

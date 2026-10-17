@@ -37,6 +37,11 @@ pub struct AuditArgs {
 /// Adding a new field is not breaking and keeps the same version.
 const AUDIT_JSON_SCHEMA_VERSION: u32 = 1;
 
+/// The bounded claim every non-quiet `audit` run ends with, including a
+/// clean one: an empty result is not a security guarantee.
+const DISCLAIMER: &str = "soroban-testkit audit is a linter with three heuristics, not a security \
+                          product — a missing finding is not a security guarantee.";
+
 struct Finding {
     /// See [`finding_path`].
     file: String,
@@ -90,7 +95,7 @@ pub fn run(args: AuditArgs, out: Output) -> Result<(), CliError> {
     if args.json {
         println!("{}", render_json(&findings));
     } else if findings.is_empty() {
-        out.note("audit: no findings");
+        out.note(format!("audit: no findings. {DISCLAIMER}"));
     } else {
         for finding in &findings {
             println!(
@@ -98,11 +103,7 @@ pub fn run(args: AuditArgs, out: Output) -> Result<(), CliError> {
                 finding.file, finding.line, finding.severity, finding.rule, finding.message
             );
         }
-        out.note(format!(
-            "\n{} finding(s). soroban-testkit audit is a linter with three heuristics, not a \
-             security product — a missing finding is not a security guarantee.",
-            findings.len()
-        ));
+        out.note(format!("\n{} finding(s). {DISCLAIMER}", findings.len()));
     }
 
     if args.strict && !findings.is_empty() {
@@ -121,8 +122,6 @@ pub fn run(args: AuditArgs, out: Output) -> Result<(), CliError> {
 /// {"schema_version":1,"disclaimer":"...","finding_count":1,"findings":[{"file":"src/lib.rs","line":7,"severity":"warning","rule":"missing-require-auth","message":"..."}]}
 /// ```
 fn render_json(findings: &[Finding]) -> String {
-    let disclaimer = "soroban-testkit audit is a linter with three heuristics, not a security \
-                      product — a missing finding is not a security guarantee.";
     let items: Vec<String> = findings
         .iter()
         .map(|finding| {
@@ -138,7 +137,7 @@ fn render_json(findings: &[Finding]) -> String {
         .collect();
     format!(
         "{{\"schema_version\":{AUDIT_JSON_SCHEMA_VERSION},\"disclaimer\":{},\"finding_count\":{},\"findings\":[{}]}}",
-        json_string(disclaimer),
+        json_string(DISCLAIMER),
         findings.len(),
         items.join(",")
     )
