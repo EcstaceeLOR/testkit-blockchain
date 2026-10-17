@@ -425,7 +425,6 @@ fn default_val(
 /// building a `.wasm` first.
 #[cfg(test)]
 mod tests {
-    use soroban_sdk::testutils::Address as _;
     use soroban_sdk::xdr::{ScSpecTypeMap, ScSpecTypeVec, ScSymbol};
 
     use super::*;
@@ -555,7 +554,7 @@ mod tests {
             ScSpecTypeDef::Symbol,
             ScSpecTypeDef::String,
         ] {
-            let err = ramp_val(&env, &ty, 3).err().expect("not a ramp type");
+            let err = ramp_val(&env, &ty, 3).expect_err("not a ramp type");
             assert!(err.0.contains("isn't supported yet"), "{err}");
             assert!(err.0.contains("u32/i32/u64/i64/u128/i128"), "{err}");
         }
@@ -591,9 +590,7 @@ mod tests {
             value_type: Box::new(ScSpecTypeDef::U32),
         }));
         let fixture = input("balances", ty.clone());
-        let err = default_val(&env, &admin, &ty, &fixture)
-            .err()
-            .expect("Map has no default");
+        let err = default_val(&env, &admin, &ty, &fixture).expect_err("Map has no default");
         assert!(err.0.contains("doesn't know how to default"), "{err}");
     }
 }

@@ -530,3 +530,99 @@ fn readme_documents_clean_environment_install_validation() {
         "Makefile must have smoke-test-install target"
     );
 }
+
+// ---- #262-#265: README scope docs ---------------------------------------------
+
+/// The README's `## Example` code block, which is also a doctest.
+fn readme_example() -> String {
+    read("README.md")
+        .split("## Example")
+        .nth(1)
+        .expect("README.md must have a `## Example` section")
+        .split("```")
+        .nth(1)
+        .expect("`## Example` must contain a code block")
+        .to_string()
+}
+
+#[test]
+fn readme_limits_output_lists_exactly_the_fields_the_cli_measures() {
+    let readme = read("README.md");
+    let limits_src = read("crates/cli/src/commands/limits.rs");
+    let sample = readme
+        .split("A run prints the last successful ramp value")
+        .nth(1)
+        .expect("README.md must show sample `limits` output")
+        .split("```text")
+        .nth(1)
+        .unwrap()
+        .split("```")
+        .next()
+        .unwrap();
+
+    let fields: Vec<&str> = sample
+        .lines()
+        .filter_map(|l| l.strip_prefix("  ")?.split_once(": ").map(|(k, _)| k))
+        .filter(|k| !k.starts_with('('))
+        .collect();
+    assert_eq!(fields, ["instructions", "memory bytes"], "{sample}");
+    for field in fields {
+        assert!(
+            limits_src.contains(&format!("println!(\"  {field}: {{")),
+            "limits.rs must print the `{field}` field the README shows"
+        );
+    }
+}
+
+#[test]
+fn readme_event_example_warns_about_capture_scope_before_the_capture() {
+    let example = readme_example();
+    let warning = example
+        .find("Capture scope:")
+        .expect("example must explain event capture scope");
+    let capture = example.find("env.events_during(").unwrap();
+    let first_later_call = example.find("token.assert_balance(").unwrap();
+    assert!(warning < capture, "warning must precede events_during");
+    assert!(capture < first_later_call);
+}
+
+#[test]
+fn readme_example_pairs_whole_unit_and_base_unit_mints() {
+    let example = readme_example();
+    assert!(example.contains("token.mint(&buyer, 100);"), "{example}");
+    assert!(
+        example.contains("token.mint_raw(&other_buyer, 1_000_000_000);"),
+        "{example}"
+    );
+    assert!(example.contains("whole tokens"), "{example}");
+    assert!(example.contains("base units"), "{example}");
+}
+
+#[test]
+fn readme_audit_section_lists_every_rule_and_disclaims_guarantees() {
+    let readme = read("README.md");
+    let audit_src = read("crates/cli/src/commands/audit.rs");
+    let section = readme
+        .split("### Audit command")
+        .nth(1)
+        .expect("README.md must have an `### Audit command` section")
+        .split("\n## ")
+        .next()
+        .unwrap();
+
+    for rule in [
+        "missing-require-auth",
+        "unchecked-i128-arithmetic",
+        "missing-ttl-bump",
+    ] {
+        assert!(
+            section.contains(&format!("`{rule}`")),
+            "README must list {rule}"
+        );
+        assert!(
+            audit_src.contains(&format!("\"{rule}\"")),
+            "audit.rs lost {rule}"
+        );
+    }
+    assert!(section.contains("not a security guarantee"), "{section}");
+}
