@@ -61,6 +61,25 @@ bare `panic!("bad state")` doesn't. When you add an assertion helper, add
 its failure variant to `TestkitError` (or reuse an existing one) rather
 than reaching for `panic!` directly.
 
+### Public error codes
+
+`TestkitError::code()` is the stable, machine-readable identifier for a
+failure. The message remains intended for people and may change; codes are
+part of the compatibility contract and must never be reused for a different
+variant. Keep this table synchronized with the `match` in
+[`crates/testkit/src/core/error.rs`](crates/testkit/src/core/error.rs) and
+extend the unit test there when adding a variant.
+
+| Variant | Code | Meaning |
+|---|---|---|
+| `TestkitError::AssertionFailed` | `TESTKIT_ASSERTION_FAILED` | An assertion about contract state or behavior was not met. |
+| `TestkitError::DecodeFailed` | `TESTKIT_DECODE_FAILED` | A captured value could not be decoded into the requested type. |
+| `TestkitError::Misuse` | `TESTKIT_MISUSE` | A testkit API was used outside its documented contract. |
+
+The codes identify the variant only; the human-readable detail remains in
+the error's display message. New variants get new codes, and existing codes
+do not change.
+
 ## `crates/cli` — the binary
 
 A thin layer over the library, structured as one file per subcommand under
