@@ -626,3 +626,107 @@ fn readme_audit_section_lists_every_rule_and_disclaims_guarantees() {
     }
     assert!(section.contains("not a security guarantee"), "{section}");
 }
+
+// ---- #254: module-level examples -------------------------------------------
+
+#[test]
+fn every_testkit_module_documents_a_setup_operation_assertion_example() {
+    for module in ["auth", "core", "events", "ledger", "money", "tokens", "ttl"] {
+        let src = read(&format!("crates/testkit/src/{module}/mod.rs"));
+        assert!(
+            src.contains("//! # Example\n"),
+            "crates/testkit/src/{module}/mod.rs must have a module-level `# Example`"
+        );
+        assert!(
+            src.contains("//! ```\n"),
+            "crates/testkit/src/{module}/mod.rs example must be a runnable doctest"
+        );
+    }
+}
+
+// ---- #256: SDK upgrade checklist -------------------------------------------
+
+#[test]
+fn sdk_upgrade_checklist_covers_each_testkit_surface_and_the_scheduled_job() {
+    let contributing = read("CONTRIBUTING.md");
+    let checklist = contributing
+        .split("## Maintainer SDK review checklist")
+        .nth(1)
+        .expect("CONTRIBUTING.md must have a `## Maintainer SDK review checklist` section")
+        .split("\n## ")
+        .next()
+        .unwrap();
+
+    assert!(checklist.contains("scheduled-sdk-check"), "{checklist}");
+    for area in ["testutils", "ledger", "event", "auth", "TTL"] {
+        assert!(
+            checklist.contains(area),
+            "checklist must re-verify `{area}`:\n{checklist}"
+        );
+    }
+}
+
+// ---- #257: CLI package and binary names ------------------------------------
+
+#[test]
+fn cli_package_and_binary_names_agree_across_manifest_docs_and_smoke_test() {
+    let manifest = read("crates/cli/Cargo.toml");
+    assert!(
+        manifest.contains("name = \"soroban-testkit-cli\"\n"),
+        "package name must be `soroban-testkit-cli`"
+    );
+    assert!(
+        manifest.contains("[[bin]]\nname = \"soroban-testkit\"\n"),
+        "installed binary must be `soroban-testkit`"
+    );
+
+    let readme = read("README.md");
+    assert!(readme.contains("cargo install soroban-testkit-cli --locked"));
+    assert!(readme.contains("(installs as `soroban-testkit`)"));
+
+    let smoke = read("scripts/smoke_test_cli_install.sh");
+    assert!(
+        smoke.contains("$TMP_INSTALL_ROOT/bin/soroban-testkit\""),
+        "smoke test must check the installed `soroban-testkit` binary"
+    );
+}
+
+// ---- #332: workspace-inherited manifest keys -------------------------------
+
+#[test]
+fn every_manifest_inherited_key_is_defined_in_workspace_package() {
+    let root = read("Cargo.toml");
+    let defined: Vec<&str> = root
+        .split("[workspace.package]")
+        .nth(1)
+        .expect("Cargo.toml must declare [workspace.package]")
+        .split("\n[")
+        .next()
+        .unwrap()
+        .lines()
+        .filter_map(|l| l.split_once(" = ").map(|(key, _)| key.trim()))
+        .collect();
+
+    for manifest in [
+        "crates/cli/Cargo.toml",
+        "crates/testkit/Cargo.toml",
+        "examples/vault/Cargo.toml",
+    ] {
+        let mut in_package = false;
+        for line in read(manifest).lines() {
+            if line.starts_with('[') {
+                in_package = line == "[package]";
+                continue;
+            }
+            if !in_package {
+                continue;
+            }
+            if let Some(key) = line.strip_suffix(".workspace = true") {
+                assert!(
+                    defined.contains(&key),
+                    "{manifest} inherits `{key}` from [workspace.package], which does not define it"
+                );
+            }
+        }
+    }
+}

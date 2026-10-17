@@ -8,9 +8,7 @@ license.workspace = true
 
 # Issue #276: Explicit fixture metadata
 # This example is for testing and documentation only, not for production use
-authors.workspace = true
 repository.workspace = true
-documentation.workspace = true
 keywords = ["soroban", "stellar", "example", "testing", "fixture"]
 categories = ["development-tools::testing"]
 
