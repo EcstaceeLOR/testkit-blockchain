@@ -63,6 +63,8 @@ needs:
 | `ci.yml` → `scheduled-sdk-check` | `contents: read`, `issues: write` | Opens a tracking issue when the weekly latest-SDK run fails; never runs on `pull_request` |
 | `issue-triage.yml` (default) | none | — |
 | `issue-triage.yml` → `label` | `issues: write` | Adds labels from issue-form selections; no checkout |
+| `label-sync.yml` (default) | none | — |
+| `label-sync.yml` → `sync` | `issues: write` | Reconciles the documented module, docs, and sizing labels on manual dispatch |
 
 Rules for new or changed workflows:
 
@@ -84,6 +86,8 @@ labels automatically from their "Module" and "Size" dropdowns
 (`.github/workflows/issue-triage.yml`, taxonomy in `BUILD_SPEC.md` §13).
 When adding a dropdown option, add the matching entry to the workflow's
 `LABELS` map in the same PR; `repo_config.rs` fails otherwise.
+Maintainers can run `.github/workflows/label-sync.yml` manually to create or
+update the documented module, docs, and sizing labels reproducibly.
 
 ## Supply-chain policy
 
@@ -107,6 +111,11 @@ Run it locally before adding a dependency:
 cargo install cargo-deny --locked
 cargo deny check
 ```
+
+The CI job also runs `cargo deny check licenses` explicitly. A successful
+license check prints no violations and exits with status 0; a dependency whose
+license is absent from `deny.toml`'s `allow` list fails that step before the
+full policy check runs.
 
 ## Rust edition policy
 

@@ -12,6 +12,9 @@ ignore = []
 
 [licenses]
 version = 2
+# `cargo deny check licenses` is the focused CI regression gate for this list.
+# A dependency with any other detected license must be reviewed and added to
+# `exceptions` with a reason, rather than silently widening this allowlist.
 # Allowed licenses for this project and its dependency graph. Add to this
 # list deliberately, not to silence a failing check — a license outside
 # this set needs a documented reason (add it to `exceptions` below instead

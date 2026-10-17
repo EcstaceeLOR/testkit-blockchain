@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+	- name: Search existing issues before opening a new one
+		url: https://github.com/soroban-testkit/testkit-blockchain/issues?q=is%3Aissue+sort%3Aupdated-desc
+		about: Search open and closed issues for an existing report or proposal.

@@ -145,7 +145,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: taiki-e/install-action@cargo-deny
+      - name: Verify the license allowlist
+        run: cargo deny check licenses
+      - name: Verify all cargo-deny policies
+        run: cargo deny check
 
   coverage:
     name: code coverage
