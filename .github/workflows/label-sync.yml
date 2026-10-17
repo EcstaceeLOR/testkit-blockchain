@@ -1,0 +1,55 @@
+name: Sync issue labels
+
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  sync:
+    name: reconcile documented labels
+    runs-on: ubuntu-latest
+    # This job updates only the documented repository labels on manual dispatch.
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const LABELS = [
+              { name: 'module/core', color: '1D76DB', description: 'Changes to core test environment or errors' },
+              { name: 'module/money', color: '1D76DB', description: 'Changes to money generators or conservation' },
+              { name: 'module/events', color: '1D76DB', description: 'Changes to event capture or assertions' },
+              { name: 'module/auth', color: '1D76DB', description: 'Changes to authorization matrices' },
+              { name: 'module/ttl', color: '1D76DB', description: 'Changes to TTL and expiry support' },
+              { name: 'module/cli', color: '1D76DB', description: 'Changes to the CLI' },
+              { name: 'docs', color: '5319E7', description: 'Documentation-only changes' },
+              { name: 'size/s', color: 'C2E0C6', description: 'Roughly under an hour' },
+              { name: 'size/m', color: 'C2E0C6', description: 'Roughly a sitting' },
+              { name: 'size/l', color: 'C2E0C6', description: 'Roughly multiple sittings' },
+            ];
+
+            for (const label of LABELS) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                });
+                await github.rest.issues.updateLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ...label,
+                });
+              }
+            }
+            core.info(`reconciled ${LABELS.length} documented labels`);

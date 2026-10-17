@@ -1,5 +1,18 @@
 # Validation against a real contract suite
 
+## Freshness
+
+- **Last run:** 2026-10-17
+- **soroban-testkit:** workspace version `0.1.0`
+- **soroban-sdk:** `27.0.6`
+- **Rust/toolchain:** `stable`, as selected by `rust-toolchain.toml`
+
+This evidence is a bounded snapshot of the `vesting` contract suite and the
+`soroban-testkit limits` command. Rerun it when the pinned SDK, Rust/toolchain,
+CLI behavior, or validated contract suite changes, and at least once every 90
+days while those inputs remain unchanged. Update this header and the findings
+below together; a fresh date alone is not evidence of a rerun.
+
 Module 10 of `BUILD_SPEC.md`. Target: [sororail-contracts](https://github.com/Sororail/sororail-contracts)
 (local checkout at the time of this exercise: `/home/emmanuel/sororail`,
 branch `sororail-contracts`), a real, unreleased Soroban contract suite —

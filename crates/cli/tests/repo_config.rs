@@ -312,6 +312,82 @@ fn every_issue_form_option_maps_to_a_documented_label() {
     }
 }
 
+// ---- #252/#253/#255/#250: repository integration configuration ------------
+
+#[test]
+fn validation_report_records_versions_and_rerun_policy() {
+    let validation = read("VALIDATION.md");
+    for required in [
+        "**Last run:**",
+        "**soroban-testkit:**",
+        "**soroban-sdk:** `27.0.6`",
+        "**Rust/toolchain:**",
+        "at least once every 90 days",
+        "pinned SDK",
+        "a fresh date alone is not evidence of a rerun",
+    ] {
+        assert!(
+            validation.contains(required),
+            "VALIDATION.md must contain `{required}"
+        );
+    }
+}
+
+#[test]
+fn issue_config_prompts_authors_to_search_existing_issues() {
+    let config = read(".github/ISSUE_TEMPLATE/config.yml");
+    assert!(config.contains("contact_links:"));
+    assert!(config.contains("Search existing issues before opening a new one"));
+    assert!(config.contains("/issues?q=is%3Aissue+sort%3Aupdated-desc"));
+}
+
+#[test]
+fn label_sync_reconciles_every_documented_module_and_size_label() {
+    let workflow = read(".github/workflows/label-sync.yml");
+    assert!(workflow.contains("workflow_dispatch: {}"));
+    assert!(workflow.contains("permissions: {}"));
+    assert!(workflow.contains("issues: write"));
+    assert!(workflow.contains("issues.getLabel"));
+    assert!(workflow.contains("issues.updateLabel"));
+    assert!(workflow.contains("issues.createLabel"));
+
+    for label in [
+        "module/core",
+        "module/money",
+        "module/events",
+        "module/auth",
+        "module/ttl",
+        "module/cli",
+        "docs",
+        "size/s",
+        "size/m",
+        "size/l",
+    ] {
+        assert!(
+            workflow.contains(&format!("name: '{label}'")),
+            "missing label `{label}`"
+        );
+    }
+}
+
+#[test]
+fn license_allowlist_has_a_focused_ci_check() {
+    let deny = read("deny.toml");
+    let ci = read(".github/workflows/ci.yml");
+    let allowlist = deny
+        .split("allow = [")
+        .nth(1)
+        .and_then(|section| section.split(']').next())
+        .expect("deny.toml must declare a license allowlist");
+
+    for license in ["Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause"] {
+        assert!(allowlist.contains(&format!("\"{license}\"")));
+    }
+    assert!(deny.contains("exceptions = []"));
+    assert!(ci.contains("run: cargo deny check licenses"));
+    assert!(ci.contains("run: cargo deny check"));
+}
+
 #[test]
 fn issue_form_options_parser_reads_dropdowns_only() {
     let form = "\
