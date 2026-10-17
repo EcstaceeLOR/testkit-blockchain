@@ -6,7 +6,7 @@ on:
   pull_request:
   schedule:
     # Every Monday at 06:00 UTC — see the scheduled-sdk-check job below.
-    - cron: '0 6 * * 1'
+    - cron: "0 6 * * 1"
   workflow_dispatch: {}
 
 # Least-privilege GITHUB_TOKEN. Every job inherits read-only access to the
@@ -118,6 +118,27 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-audit
       - run: cargo audit
+
+  min-deps:
+    name: minimum dependency versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      # Issue #274: Validate workspace against minimum declared dependencies
+      # -Z minimal-versions resolves dependencies to their oldest compatible versions
+      # rather than newest, catching cases where we rely on newer features without
+      # declaring minimum version bounds
+      - name: Generate Cargo.lock with minimal versions
+        run: cargo +nightly generate-lockfile -Z minimal-versions
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check with minimal dependency versions
+        run: cargo check --workspace --all-targets
+      # Known limitations (documented):
+      # - Does not catch minimum version issues in dev-dependencies of dependencies
+      # - May fail if upstream crates have incorrect minimum version declarations
+      # - Nightly-only feature, may break on toolchain updates
 
   deny:
     name: cargo deny

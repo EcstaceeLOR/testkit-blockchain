@@ -6,6 +6,19 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+# Issue #276: Explicit fixture metadata
+# This example is for testing and documentation only, not for production use
+authors.workspace = true
+repository.workspace = true
+documentation.workspace = true
+keywords = ["soroban", "stellar", "example", "testing", "fixture"]
+categories = ["development-tools::testing"]
+
+[package.metadata]
+# Explicitly mark this as a test fixture to prevent accidental inclusion
+# in published artifacts or dependency resolution
+test-fixture = true
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 doctest = false
