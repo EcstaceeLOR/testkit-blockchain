@@ -179,6 +179,22 @@ order:
    the version-bump PR, not by closing it manually — so the fix and the
    failure stay linked in history.
 
+### Behavior areas to re-verify
+
+A green build is not enough after a bump. Confirm that the tests still
+exercise each surface the testkit wraps from `soroban-sdk`:
+
+- **testutils:** `TestEnv` construction and contract registration
+  (`crates/testkit/src/core/env.rs`).
+- **ledger:** sequence and timestamp advancement
+  (`crates/testkit/src/ledger/clock.rs`).
+- **event:** captured event shape and topic decoding
+  (`crates/testkit/src/events/capture.rs`).
+- **auth:** caller mocking and rejection in `AuthMatrix`
+  (`crates/testkit/src/auth/matrix.rs`).
+- **TTL:** TTL reads, extension, and expiry simulation
+  (`crates/testkit/src/ttl/expiry.rs`).
+
 If the new SDK version is not yet safe to adopt (e.g. an upstream
 regression), leave the pin as-is, comment on the issue with what's
 blocking the bump, and leave the issue open as a tracking item.
@@ -212,6 +228,14 @@ The crate-level `#![deny(missing_docs)]` lint (see
 [Code conventions](#code-conventions)) still applies to deprecated items;
 a `#[deprecated]` item keeps its doc comment and `# Example` block until
 it is removed.
+
+## Package and binary names
+
+The CLI package is `soroban-testkit-cli`, and its `[[bin]]` in
+`crates/cli/Cargo.toml` installs a binary named `soroban-testkit`. If you
+rename either, update all of these in the same PR: the install and
+`--help` examples in `README.md`, `scripts/smoke_test_cli_install.sh`, and
+the CLI name checks in `crates/cli/tests/repo_config.rs`.
 
 ## Local setup
 
