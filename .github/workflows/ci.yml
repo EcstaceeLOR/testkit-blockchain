@@ -73,6 +73,27 @@ jobs:
             fi
           done
           exit $status
+      - name: Workspace package inventory matches cargo metadata (see ARCHITECTURE.md)
+        run: |
+          # Issue #259: Workspace package inventory validation
+          # Verify that documented packages/examples in ARCHITECTURE.md match actual workspace
+          status=0
+          cargo metadata --format-version 1 --offline 2>/dev/null | jq -r '.packages[] | select(.source == null) | .name' | sort > /tmp/actual_packages.txt
+
+          # Check that we have exactly the documented workspace members
+          expected="soroban-testkit
+soroban-testkit-cli
+vault"
+          echo "$expected" | sort > /tmp/expected_packages.txt
+
+          if ! diff -q /tmp/expected_packages.txt /tmp/actual_packages.txt >/dev/null 2>&1; then
+            echo "::error::Workspace packages don't match ARCHITECTURE.md. Expected:"
+            cat /tmp/expected_packages.txt
+            echo "Actual:"
+            cat /tmp/actual_packages.txt
+            status=1
+          fi
+          exit $status
 
   test:
     name: build + test
@@ -88,7 +109,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.rustup/toolchains/*/lib/rustlib/wasm32v1-none
-          key: wasm32v1-none-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}
+          key: wasm32v1-none-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml') }}
           restore-keys: |
             wasm32v1-none-${{ runner.os }}-
       - uses: Swatinem/rust-cache@v2
@@ -159,7 +180,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.rustup/toolchains/*/lib/rustlib/wasm32v1-none
-          key: wasm32v1-none-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}
+          key: wasm32v1-none-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml') }}
           restore-keys: |
             wasm32v1-none-${{ runner.os }}-
       - uses: Swatinem/rust-cache@v2
@@ -194,7 +215,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.rustup/toolchains/*/lib/rustlib/wasm32v1-none
-          key: wasm32v1-none-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}
+          key: wasm32v1-none-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml') }}
           restore-keys: |
             wasm32v1-none-${{ runner.os }}-
       - uses: Swatinem/rust-cache@v2
@@ -213,4 +234,43 @@ jobs:
               title: `Scheduled latest-SDK test failed (run ${context.runId})`,
               body: `The weekly test against the latest stable soroban-sdk failed. See the run for details: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               labels: ['ci', 'upstream-sdk'],
+            });
+
+  scheduled-nightly-check:
+    name: scheduled nightly toolchain compatibility
+    # Detect upstream nightly compiler changes without changing the pinned
+    # release toolchain. Runs on-demand and weekly so we catch incompatibilities
+    # before a contributor hits them, but don't spam noise weekly if stable
+    # just works fine.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32v1-none
+      - name: Cache wasm target
+        uses: actions/cache@v4
+        with:
+          path: ~/.rustup/toolchains/*/lib/rustlib/wasm32v1-none
+          key: wasm32v1-none-nightly-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.toml') }}
+          restore-keys: |
+            wasm32v1-none-nightly-${{ runner.os }}-
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo +nightly build --workspace
+      - run: cargo +nightly test --workspace
+      - name: Open an issue if nightly compatibility fails
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Nightly toolchain compatibility check failed (run ${context.runId})`,
+              body: `The weekly check against the latest nightly toolchain failed. This may indicate an upstream compiler change that will eventually affect the pinned stable toolchain. See the run for details: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['ci', 'upstream-toolchain'],
             });

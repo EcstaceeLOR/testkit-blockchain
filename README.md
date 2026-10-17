@@ -175,8 +175,9 @@ A reproducible smoke-test script is also provided at [`scripts/smoke_test_cli_in
 ### Usage
 
 ```sh
-# Coverage for the WASM target (wraps cargo-llvm-cov, which needs no
-# Soroban-specific flags since contract tests run natively).
+# Coverage for native contract tests (wraps cargo-llvm-cov, which needs no
+# Soroban-specific flags since unit/integration tests run natively in the
+# test harness, not against the compiled .wasm).
 soroban-testkit coverage --format html --open
 
 # Empirically find how many recipients a batch operation can handle
