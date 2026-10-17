@@ -85,6 +85,40 @@ Conservation {
 # }
 ```
 
+### Modeling nested authorization
+
+When a privileged entry point makes an authorized sub-invocation, put this
+shape inside the invoke closure passed to `AuthMatrix::entry_point`. The
+root invocation is the entry point under test; each nested invocation
+belongs in its parent's `MockAuthInvoke::sub_invokes` slice. This lets
+`AuthMatrix` check the same authorization shape that the contract executes
+instead of granting one flat authorization to the whole call.
+
+```text
+let result = Client::new(env, &parent_id)
+  .mock_auths(&[MockAuth {
+    address: &caller,
+    invoke: &MockAuthInvoke {
+      contract: &parent_id,
+      fn_name: "withdraw",
+      args: (child_id.clone(), amount).into_val(env),
+      sub_invokes: &[MockAuthInvoke {
+        contract: &child_id,
+        fn_name: "authorize",
+        args: (caller.clone(), amount).into_val(env),
+        sub_invokes: &[],
+      }],
+    },
+  }])
+  .try_withdraw(&child_id, &amount);
+```
+
+Use the generated client's actual argument tuple and `try_*` method for your
+contract. The [auth module documentation](crates/testkit/src/auth/mod.rs),
+including the [`AuthMatrix` Rustdoc](crates/testkit/src/auth/matrix.rs),
+contains the complete matrix contract and failure behavior; the
+`MockAuthInvoke` tree above is only the nested-call part.
+
 ## CLI
 
 A companion binary, `soroban-testkit-cli` (installs as `soroban-testkit`),
@@ -179,6 +213,32 @@ claims about live-network behavior.
   `max_entry_ttl` and advances the whole ledger beyond it; `kind` documents the
   caller's intent but does not restrict expiry to one entry or storage kind.
   Use a disposable `TestEnv` when unrelated state must survive.
+
+#### Expiry versus archival
+
+Temporary storage is intentionally disposable: after its TTL expires, the
+entry is gone and a contract must handle the missing value. Persistent
+storage is different: an expired entry is archival state that can be brought
+back by a live-network restore-footprint workflow, then rewritten or
+extended. The testkit does not model that workflow.
+
+The supported network-free check is therefore to test the contract's
+post-expiry behavior, and to test TTL extension while an entry is still
+present:
+
+```text
+env.assert_bumps_ttl(&contract_id, StorageKind::Persistent, key, || {
+    client.touch_record_checked();
+});
+
+env.assert_survives_expiry(StorageKind::Temporary, || {
+    client.read_temp_checked(); // handles the missing entry
+});
+```
+
+Do not treat `expire` as proof that persistent archival can be restored, or
+that a temporary entry can be recovered. Those network and restore-footprint
+semantics are outside the current SDK testutils boundary.
 
 ### Limits command
 

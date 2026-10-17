@@ -6,7 +6,7 @@ members = ["crates/*", "examples/vault"]
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/soroban-testkit/soroban-testkit"
+repository = "https://github.com/soroban-testkit/testkit-blockchain"
 
 [workspace.dependencies]
 soroban-sdk = "27.0.6"
