@@ -159,6 +159,23 @@ table can't: how much of the library's own behavior is exercised by its
 own test suite, and whether it still builds against whatever `soroban-sdk`
 release is current upstream.
 
+## Keeping the map synchronized
+
+Module ownership and the dependency table above must stay synchronized with
+source. When a module's responsibility, its `Depends on` entry, or the CLI
+command set changes, update this document in the same PR and run the
+lightweight doc check:
+
+```sh
+cargo test --workspace
+cargo doc --workspace
+```
+
+The module table, the CLI commands table, and the dependency boundaries
+table are the single source of truth for this map; keep them consistent
+with `crates/testkit/src/lib.rs`, `crates/cli/src/commands/mod.rs`, and the
+root `Cargo.toml` respectively.
+
 [`TestEnv`]: crates/testkit/src/core/env.rs
 [`TestkitError`]: crates/testkit/src/core/error.rs
 [`AuthMatrix`]: crates/testkit/src/auth/matrix.rs
