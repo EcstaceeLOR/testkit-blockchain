@@ -89,6 +89,23 @@ When adding a dropdown option, add the matching entry to the workflow's
 Maintainers can run `.github/workflows/label-sync.yml` manually to create or
 update the documented module, docs, and sizing labels reproducibly.
 
+### Maintainer triage guide (#251)
+
+When an author's own `module/*`/`size/*` dropdown picks don't match the
+actual change, or an issue turns out to be out of scope:
+
+1. **Re-label, don't relabel-and-argue.** Swap the `module/*` or `size/*`
+   label to match reality (an issue scoped `size/s` that touches three
+   crates is `size/m` at least) — a quick comment naming the change is
+   enough; no debate needed for a mechanical correction.
+2. **Out of scope:** comment with the specific reason (not a one-word
+   "wontfix") — e.g. outside `BUILD_SPEC.md`'s modules, duplicates an
+   existing issue (link it), or asks for a breaking change without an
+   `## API deprecation policy` plan — then close it. Don't leave it open
+   unlabeled "to think about later."
+3. **Needs more info:** label `docs` only if it's actually a docs gap;
+   otherwise ask the specific question in a comment and leave it open.
+
 ## Supply-chain policy
 
 Dependencies are checked with [`cargo-deny`](https://embarkstudios.github.io/cargo-deny/),
@@ -158,10 +175,10 @@ full policy check runs.
 
 ## Maintainer SDK review checklist
 
-The scheduled CI job builds against whatever `soroban-sdk` version is
-currently latest on crates.io and opens an issue automatically if that
-build or test run fails. When that issue lands, work through it in this
-order:
+The scheduled CI job (`scheduled-sdk-check`) builds against whatever
+`soroban-sdk` version is currently latest on crates.io and opens an issue
+automatically if that build or test run fails. When that issue lands,
+work through it in this order:
 
 1. **Read the failure, not just the summary.** Open the scheduled job's
    log and find the first failing step (build error vs. test failure vs.

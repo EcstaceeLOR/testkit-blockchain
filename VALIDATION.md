@@ -9,8 +9,8 @@
 
 This evidence is a bounded snapshot of the `vesting` contract suite and the
 `soroban-testkit limits` command. Rerun it when the pinned SDK, Rust/toolchain,
-CLI behavior, or validated contract suite changes, and at least once every 90
-days while those inputs remain unchanged. Update this header and the findings
+CLI behavior, or validated contract suite changes, and at least once every 90 days
+while those inputs remain unchanged. Update this header and the findings
 below together; a fresh date alone is not evidence of a rerun.
 
 Module 10 of `BUILD_SPEC.md`. Target: [sororail-contracts](https://github.com/Sororail/sororail-contracts)
