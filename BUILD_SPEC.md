@@ -28,6 +28,7 @@
 16. [Conventions](#11-conventions)
 17. [Verify before you build](#12-verify-before-you-build)
 18. [Issue seeding for Drips Wave](#13-issue-seeding-for-drips-wave)
+14. [Shipped surface and current CLI limitations](#14-shipped-surface-and-current-cli-limitations)
 
 ---
 
@@ -703,3 +704,50 @@ Seeding many issues at once is where low-quality and duplicate entries get in. A
 3. **Open the batch**, then stop and re-read the board as a contributor would see it. Fix overlapping wording or acceptance criteria before drafting the next batch.
 4. **Repeat until the board holds 12–15 ready issues, and no more.** Issues beyond that target go stale before anyone picks them up; keep further drafts out of the tracker until the open count drops.
 5. **Close rather than accumulate.** An issue found to be a duplicate, out of scope, or already done during a later batch is closed with a link to the canonical issue or commit, not left open with a comment.
+
+## 14. Shipped surface and current CLI limitations
+
+The build specification is a snapshot of what ships. Keep this section in
+sync with `crates/testkit/src/lib.rs`, `crates/cli/src/commands/mod.rs`, and
+the root `Cargo.toml`; when any of them change, update this section in the
+same PR.
+
+### Shipped library surface (`soroban-testkit`)
+
+Modules 1–8 are implemented and published as the `soroban-testkit` crate:
+
+- `core` — `TestEnv`, `TestkitError` (error codes are the compatibility contract; messages may change)
+- `ledger` — `advance`, `advance_ledgers`, `warp_to`, `now`, `sequence`, `at`
+- `money` — `adversarial_amounts`, `amounts_in`, `bps_values`, `Conservation`, `assert_conserved_over`
+- `events` — `EventLog`, `CapturedEvent`, `events`, `events_during`
+- `tokens` — `TestToken`, `token`, `token_with_decimals`
+- `auth` — `AuthMatrix`, `assert_requires_auth`
+- `ttl` — `StorageKind`, `ttl_of`, `expire`, `assert_bumps_ttl`, `assert_survives_expiry`
+- `prelude` — the `use soroban_testkit::prelude::*;` re-export aggregate
+
+The library has zero non-dev network dependencies and compiles for the WASM
+target where applicable.
+
+### Shipped CLI surface (`soroban-testkit-cli`)
+
+Three subcommands are implemented:
+
+- `coverage` — wraps `cargo llvm-cov test`
+- `limits` — empirical resource-ceiling discovery (runs each attempt in a subprocess)
+- `audit` — three static heuristic rules, JSON `--strict` output, schema version 1
+
+### Current CLI limitations
+
+- `coverage` requires `cargo-llvm-cov` to be installed (`cargo install cargo-llvm-cov`); the command does not install it.
+- `limits` runs natively with no network access; WASM-target aborts during ramp force a per-attempt child process (`__limits-probe`, hidden from `--help`).
+- `audit` is a linter with three heuristics, not a security product; a missing finding is not a security guarantee.
+
+### Drift review checklist
+
+When changing public API or CLI behavior:
+
+- [ ] Update the corresponding BUILD_SPEC.md module or CLI section
+- [ ] Update `crates/testkit/src/prelude.rs` if re-exports changed
+- [ ] Update `ARCHITECTURE.md` module table and dependency boundaries table
+- [ ] Run `cargo test --workspace` and `cargo doc --workspace`
+

@@ -31,6 +31,17 @@ allow = [
     "CC0-1.0",
 ]
 confidence-threshold = 0.8
+# Exceptions to the license allowlist. The list is intentionally empty:
+# every dependency must carry an allowed license. If a dependency with a
+# non-allowed license is genuinely required, add it here *and* document the
+# exception on the line above with:
+#   - rationale: why the non-allowed license is needed
+#   - review-date: YYYY-MM-DD when the exception should be re-evaluated
+#
+# Example (do not uncomment unless a real exception exists):
+# exceptions = [
+#   "some-crate",  # rationale: ... ; review-date: 2026-01-01
+# ]
 exceptions = []
 
 [bans]
