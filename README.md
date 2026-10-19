@@ -364,9 +364,23 @@ soroban-testkit coverage --format lcov --fail-under 92.5
 # What actually runs (shown with --verbose):
 #   cargo llvm-cov test --fail-under-lines 80
 soroban-testkit --verbose coverage --fail-under 80
+
+# Print that command without running it; needs neither cargo nor
+# cargo-llvm-cov installed:
+#   cargo llvm-cov test --lcov --output-path lcov.info --fail-under-lines 80
+soroban-testkit coverage --format lcov --fail-under 80 --dry-run
 ```
 
 In CI, run it as an ordinary step; its exit code gates the job.
+
+`--dry-run` is also how the flag forwarding is tested: the CLI's unit tests
+check the full command (program, arguments, and the `CARGO_TERM_COLOR` /
+`NO_COLOR` environment it sets) built by `coverage::Invocation`, and its
+integration tests run the real binary with `--dry-run` and an empty `PATH`,
+so `cargo test` never needs cargo-llvm-cov. `--open` combines only with
+`--format html` (or the default format, which it switches to HTML);
+`--format lcov --open` is rejected, since cargo-llvm-cov can't write both in
+one run.
 
 ### Output controls
 
